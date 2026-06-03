@@ -1,0 +1,1 @@
+-keep,allowobfuscation,allowshrinking class day.azimuth.observer.ui.screens.dashboard.DashboardViewModel
