@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SettingsUiState(
-    val walletAddress: String = "",
-    val apiEndpoint: String = "https://api.azimuth.day/",
+    val email: String = "",
+    val apiEndpoint: String = "http://192.168.3.162:3000/",
     val nodeId: String = "",
     val isRegistered: Boolean = false,
 )
@@ -29,16 +29,12 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             _uiState.value = SettingsUiState(
-                walletAddress = prefs.walletAddress.first(),
+                email = prefs.email.first(),
                 apiEndpoint = prefs.apiEndpoint.first(),
                 nodeId = prefs.nodeId.first(),
                 isRegistered = prefs.isRegistered.first(),
             )
         }
-    }
-
-    fun setWalletAddress(address: String) {
-        _uiState.value = _uiState.value.copy(walletAddress = address)
     }
 
     fun setApiEndpoint(endpoint: String) {

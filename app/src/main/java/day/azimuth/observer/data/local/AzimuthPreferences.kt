@@ -13,21 +13,21 @@ import javax.inject.Singleton
 class AzimuthPreferences @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
-    val walletAddress: Flow<String> = dataStore.data.map { it[KEY_WALLET_ADDRESS] ?: "" }
+    val email: Flow<String> = dataStore.data.map { it[KEY_EMAIL] ?: "" }
     val apiKey: Flow<String> = dataStore.data.map { it[KEY_API_KEY] ?: "" }
     val nodeId: Flow<String> = dataStore.data.map { it[KEY_NODE_ID] ?: "" }
     val userId: Flow<String> = dataStore.data.map { it[KEY_USER_ID] ?: "" }
-    val apiEndpoint: Flow<String> = dataStore.data.map { it[KEY_API_ENDPOINT] ?: "https://api.azimuth.day/" }
+    val apiEndpoint: Flow<String> = dataStore.data.map { it[KEY_API_ENDPOINT] ?: "http://192.168.3.162:3000/" }
 
     val isRegistered: Flow<Boolean> = dataStore.data.map {
         !it[KEY_API_KEY].isNullOrEmpty() && !it[KEY_NODE_ID].isNullOrEmpty()
     }
 
-    suspend fun saveRegistration(userId: String, apiKey: String, walletAddress: String) {
+    suspend fun saveRegistration(userId: String, apiKey: String, email: String) {
         dataStore.edit {
             it[KEY_USER_ID] = userId
             it[KEY_API_KEY] = apiKey
-            it[KEY_WALLET_ADDRESS] = walletAddress
+            it[KEY_EMAIL] = email
         }
     }
 
@@ -44,7 +44,7 @@ class AzimuthPreferences @Inject constructor(
     }
 
     companion object {
-        private val KEY_WALLET_ADDRESS = stringPreferencesKey("wallet_address")
+        private val KEY_EMAIL = stringPreferencesKey("email")
         private val KEY_API_KEY = stringPreferencesKey("api_key")
         private val KEY_NODE_ID = stringPreferencesKey("node_id")
         private val KEY_USER_ID = stringPreferencesKey("user_id")

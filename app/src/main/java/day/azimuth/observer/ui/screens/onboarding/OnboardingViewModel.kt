@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class OnboardingUiState(
-    val walletAddress: String = "",
+    val email: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
     val isComplete: Boolean = false,
@@ -29,25 +29,25 @@ class OnboardingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-    fun setWalletAddress(address: String) {
-        _uiState.value = _uiState.value.copy(walletAddress = address, error = null)
+    fun setEmail(email: String) {
+        _uiState.value = _uiState.value.copy(email = email, error = null)
     }
 
     fun register() {
-        val address = _uiState.value.walletAddress.trim()
-        if (address.length < 58) {
-            _uiState.value = _uiState.value.copy(error = "Invalid Algorand address")
+        val email = _uiState.value.email.trim()
+        if (!email.matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) {
+            _uiState.value = _uiState.value.copy(error = "Invalid email address")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val authResponse = api.register(RegisterRequest(walletAddress = address))
+                val authResponse = api.register(RegisterRequest(email = email))
                 prefs.saveRegistration(
                     userId = authResponse.userId,
                     apiKey = authResponse.apiKey,
-                    walletAddress = address,
+                    email = email,
                 )
 
                 val nodeResponse = api.registerNode(

@@ -10,7 +10,7 @@ import retrofit2.http.Path
 // ─── Auth ────────────────────────────────────────────────────────────
 
 data class RegisterRequest(
-    @SerializedName("wallet_address") val walletAddress: String,
+    @SerializedName("email") val email: String,
 )
 
 data class RegisterResponse(

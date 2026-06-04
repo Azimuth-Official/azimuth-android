@@ -36,17 +36,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Algorand Wallet",
+                    text = "Account",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = uiState.walletAddress,
-                    onValueChange = viewModel::setWalletAddress,
-                    label = { Text("Wallet Address") },
-                    placeholder = { Text("Enter your Algorand address") },
+                    value = uiState.email,
+                    onValueChange = {},
+                    label = { Text("Email") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    readOnly = true,
                 )
             }
         }
