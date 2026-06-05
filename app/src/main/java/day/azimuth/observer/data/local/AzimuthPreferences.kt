@@ -17,7 +17,7 @@ class AzimuthPreferences @Inject constructor(
     val apiKey: Flow<String> = dataStore.data.map { it[KEY_API_KEY] ?: "" }
     val nodeId: Flow<String> = dataStore.data.map { it[KEY_NODE_ID] ?: "" }
     val userId: Flow<String> = dataStore.data.map { it[KEY_USER_ID] ?: "" }
-    val apiEndpoint: Flow<String> = dataStore.data.map { it[KEY_API_ENDPOINT] ?: "http://192.168.3.162:3000/" }
+    val apiEndpoint: Flow<String> = dataStore.data.map { it[KEY_API_ENDPOINT] ?: "https://api.azimuth.day/" }
 
     val isRegistered: Flow<Boolean> = dataStore.data.map {
         !it[KEY_API_KEY].isNullOrEmpty() && !it[KEY_NODE_ID].isNullOrEmpty()

@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val email: String = "",
-    val apiEndpoint: String = "http://192.168.3.162:3000/",
+    val apiEndpoint: String = "https://api.azimuth.day/",
     val nodeId: String = "",
     val isRegistered: Boolean = false,
 )
