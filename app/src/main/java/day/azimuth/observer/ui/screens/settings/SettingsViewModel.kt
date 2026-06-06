@@ -4,8 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import day.azimuth.observer.data.local.AzimuthPreferences
+import day.azimuth.observer.service.CollectionController
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -16,15 +20,20 @@ data class SettingsUiState(
     val apiEndpoint: String = "https://api.azimuth.day/",
     val nodeId: String = "",
     val isRegistered: Boolean = false,
+    val showLogoutConfirm: Boolean = false,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val prefs: AzimuthPreferences,
+    private val collectionController: CollectionController,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<SettingsEvent>()
+    val events: SharedFlow<SettingsEvent> = _events.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -43,4 +52,25 @@ class SettingsViewModel @Inject constructor(
             prefs.saveApiEndpoint(endpoint)
         }
     }
+
+    fun requestLogout() {
+        _uiState.value = _uiState.value.copy(showLogoutConfirm = true)
+    }
+
+    fun cancelLogout() {
+        _uiState.value = _uiState.value.copy(showLogoutConfirm = false)
+    }
+
+    fun confirmLogout() {
+        _uiState.value = _uiState.value.copy(showLogoutConfirm = false)
+        viewModelScope.launch {
+            collectionController.stopCollection()
+            prefs.clear()
+            _events.emit(SettingsEvent.LoggedOut)
+        }
+    }
+}
+
+sealed class SettingsEvent {
+    data object LoggedOut : SettingsEvent()
 }

@@ -1,5 +1,6 @@
 package day.azimuth.observer.ui
 
+import android.content.Intent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -15,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -22,13 +24,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import day.azimuth.observer.MainActivity
 import day.azimuth.observer.ui.screens.dashboard.DashboardScreen
 import day.azimuth.observer.ui.screens.observations.ObservationsScreen
 import day.azimuth.observer.ui.screens.onboarding.OnboardingScreen
+import day.azimuth.observer.ui.screens.onboarding.PermissionOnboardingScreen
 import day.azimuth.observer.ui.screens.settings.SettingsScreen
 import kotlinx.serialization.Serializable
 
 @Serializable object OnboardingRoute
+@Serializable object PermissionOnboardingRoute
 @Serializable object DashboardRoute
 @Serializable object ObservationsRoute
 @Serializable object SettingsRoute
@@ -45,6 +50,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val context = LocalContext.current
 
     val items = listOf(
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
@@ -53,7 +59,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     )
 
     val showBottomBar = isRegistered && currentDestination?.hierarchy?.any {
-        it.hasRoute(OnboardingRoute::class)
+        it.hasRoute(OnboardingRoute::class) || it.hasRoute(PermissionOnboardingRoute::class)
     } != true
 
     Scaffold(
@@ -89,15 +95,39 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
             composable<OnboardingRoute> {
                 OnboardingScreen(
                     onRegistrationComplete = {
-                        navController.navigate(DashboardRoute) {
+                        navController.navigate(PermissionOnboardingRoute) {
                             popUpTo(OnboardingRoute) { inclusive = true }
+                        }
+                    },
+                )
+            }
+            composable<PermissionOnboardingRoute> {
+                PermissionOnboardingScreen(
+                    onPermissionsGranted = {
+                        navController.navigate(DashboardRoute) {
+                            popUpTo(PermissionOnboardingRoute) { inclusive = true }
+                        }
+                    },
+                    onLogout = {
+                        navController.navigate(OnboardingRoute) {
+                            popUpTo(0) { inclusive = true }
                         }
                     },
                 )
             }
             composable<DashboardRoute> { DashboardScreen() }
             composable<ObservationsRoute> { ObservationsScreen() }
-            composable<SettingsRoute> { SettingsScreen() }
+            composable<SettingsRoute> {
+                SettingsScreen(
+                    onLogout = {
+                        // Restart activity to clear all Compose state and re-evaluate startDestination
+                        val intent = Intent(context, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        }
+                        context.startActivity(intent)
+                    },
+                )
+            }
         }
     }
 }

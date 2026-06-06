@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -26,6 +27,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+
+    DisposableEffect(Unit) {
+        viewModel.refreshStatus()
+        onDispose { }
+    }
 
     Column(
         modifier = Modifier
@@ -60,6 +66,14 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                             Text("Start")
                         }
                     }
+                }
+                if (uiState.permissionBlocked) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Permissions required. Go to Settings to grant location, phone state, and notification permissions.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
@@ -116,6 +130,13 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (uiState.lastUploadStatus.isNotEmpty()) {
+                    Text(
+                        text = uiState.lastUploadStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

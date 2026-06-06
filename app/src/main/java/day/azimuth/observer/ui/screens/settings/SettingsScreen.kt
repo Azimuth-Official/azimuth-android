@@ -6,11 +6,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -18,8 +23,42 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onLogout: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is SettingsEvent.LoggedOut -> onLogout()
+            }
+        }
+    }
+
+    if (uiState.showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelLogout,
+            title = { Text("Log out") },
+            text = { Text("This will clear your local session and return you to setup. Your observation history will remain on this device.") },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::confirmLogout,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text("Log out")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = viewModel::cancelLogout) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -48,6 +87,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     singleLine = true,
                     readOnly = true,
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = viewModel::requestLogout,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text("Log out")
+                }
             }
         }
 
