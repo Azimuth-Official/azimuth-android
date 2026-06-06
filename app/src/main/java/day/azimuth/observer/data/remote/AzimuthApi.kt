@@ -68,11 +68,19 @@ data class ObservationPayload(
     val latitude: Double,
     val longitude: Double,
     val accuracy: Float? = null,
+    val altitude: Double? = null,
     @SerializedName("frequency_hz") val frequencyHz: Long? = null,
     @SerializedName("timestamp_ns") val timestampNs: Long? = null,
     @SerializedName("signal_strength_dbm") val signalStrengthDbm: Double? = null,
+    @SerializedName("snr_db") val snrDb: Double? = null,
     @SerializedName("source_id") val sourceId: String? = null,
     @SerializedName("raw_data") val rawData: Map<String, Any?>? = null,
+    @SerializedName("app_version") val appVersion: String? = null,
+    @SerializedName("build_number") val buildNumber: String? = null,
+    @SerializedName("device_model") val deviceModel: String? = null,
+    @SerializedName("android_api_level") val androidApiLevel: Int? = null,
+    @SerializedName("validation_status") val validationStatus: String? = "raw",
+    @SerializedName("client_dedupe_key") val clientDedupeKey: String? = null,
 )
 
 data class SubmitObservationsRequest(

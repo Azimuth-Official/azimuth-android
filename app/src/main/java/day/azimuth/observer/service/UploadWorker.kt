@@ -1,9 +1,13 @@
 package day.azimuth.observer.service
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import day.azimuth.observer.data.local.AzimuthPreferences
@@ -12,9 +16,11 @@ import day.azimuth.observer.data.remote.AzimuthApi
 import day.azimuth.observer.data.remote.ObservationPayload
 import day.azimuth.observer.data.remote.SubmitObservationsRequest
 import kotlinx.coroutines.flow.first
+import retrofit2.HttpException
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import android.os.Build
 
 @HiltWorker
 class UploadWorker @AssistedInject constructor(
@@ -27,11 +33,30 @@ class UploadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val nodeId = prefs.nodeId.first()
-        if (nodeId.isEmpty()) return Result.failure()
+        if (nodeId.isEmpty()) {
+            Log.w(TAG, "No node_id configured; skipping upload")
+            return Result.failure(workDataOf(KEY_ERROR to "No node_id"))
+        }
+
+        var totalAccepted = 0
+        var hadFailure = false
+
+        val packageInfo = runCatching {
+            @Suppress("DEPRECATION")
+            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0)
+        }.getOrNull()
+        val appVersion = packageInfo?.versionName
+        @Suppress("DEPRECATION")
+        val buildNumber = packageInfo?.versionCode?.toString()
+        val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+        val androidApiLevel = Build.VERSION.SDK_INT
 
         repeat(MAX_BATCHES) {
             val batch = observationDao.getUploadBatch(BATCH_SIZE)
-            if (batch.isEmpty()) return Result.success()
+            if (batch.isEmpty()) {
+                Log.i(TAG, "Upload complete: $totalAccepted accepted")
+                return if (hadFailure) Result.retry() else Result.success()
+            }
 
             val request = SubmitObservationsRequest(
                 nodeId = nodeId,
@@ -46,23 +71,64 @@ class UploadWorker @AssistedInject constructor(
                         accuracy = obs.accuracy,
                         frequencyHz = obs.frequencyHz,
                         timestampNs = obs.timestampNs,
+                        clientDedupeKey = obs.id.toString(),
+                        appVersion = appVersion,
+                        buildNumber = buildNumber,
+                        deviceModel = deviceModel,
+                        androidApiLevel = androidApiLevel,
+                        validationStatus = "raw",
+                        rawData = mapOf(
+                            "payload" to obs.payload,
+                        ),
                     )
                 },
             )
 
             try {
-                api.submitObservations(request)
+                val response = api.submitObservations(request)
                 observationDao.markUploaded(batch.map { it.id })
-            } catch (_: Exception) {
-                return Result.retry()
+                totalAccepted += response.accepted
+                Log.i(TAG, "Uploaded batch: ${response.accepted} accepted")
+            } catch (e: HttpException) {
+                when (e.code()) {
+                    401, 403 -> {
+                        Log.e(TAG, "Auth failed (${e.code()}); will not retry automatically")
+                        return Result.failure(workDataOf(KEY_ERROR to "Auth ${e.code()}"))
+                    }
+                    400 -> {
+                        Log.e(TAG, "Payload rejected (${e.code()}): ${e.response()?.errorBody()?.string()}")
+                        hadFailure = true
+                    }
+                    in 500..599 -> {
+                        Log.w(TAG, "Server error (${e.code()}); will retry")
+                        hadFailure = true
+                    }
+                    else -> {
+                        Log.w(TAG, "Unexpected HTTP ${e.code()}; will retry")
+                        hadFailure = true
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Network error; will retry: ${e.message}")
+                hadFailure = true
             }
         }
 
-        return Result.success()
+        return if (hadFailure) Result.retry() else Result.success()
     }
 
     companion object {
+        private const val TAG = "UploadWorker"
         private const val BATCH_SIZE = 50
         private const val MAX_BATCHES = 10
+        const val UPLOAD_WORK_TAG = "azimuth_upload"
+        const val KEY_ERROR = "upload_error"
+
+        fun enqueueOneOff(context: Context) {
+            val request = OneTimeWorkRequestBuilder<UploadWorker>()
+                .addTag(UPLOAD_WORK_TAG)
+                .build()
+            WorkManager.getInstance(context).enqueue(request)
+        }
     }
 }
