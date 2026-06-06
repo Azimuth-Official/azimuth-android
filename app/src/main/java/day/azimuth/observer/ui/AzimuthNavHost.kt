@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -26,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import day.azimuth.observer.MainActivity
 import day.azimuth.observer.ui.screens.dashboard.DashboardScreen
+import day.azimuth.observer.ui.screens.map.MapScreen
 import day.azimuth.observer.ui.screens.observations.ObservationsScreen
 import day.azimuth.observer.ui.screens.onboarding.OnboardingScreen
 import day.azimuth.observer.ui.screens.onboarding.PermissionOnboardingScreen
@@ -37,6 +39,7 @@ import kotlinx.serialization.Serializable
 @Serializable object DashboardRoute
 @Serializable object ObservationsRoute
 @Serializable object SettingsRoute
+@Serializable object MapRoute
 
 data class BottomNavItem(
     val label: String,
@@ -55,6 +58,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     val items = listOf(
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
         BottomNavItem("Observations", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
+        BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
 
@@ -117,6 +121,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
             }
             composable<DashboardRoute> { DashboardScreen() }
             composable<ObservationsRoute> { ObservationsScreen() }
+            composable<MapRoute> { MapScreen() }
             composable<SettingsRoute> {
                 SettingsScreen(
                     onLogout = {

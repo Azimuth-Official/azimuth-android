@@ -100,4 +100,7 @@ dependencies {
 
     // Coroutines Play Services (await() for Tasks)
     implementation(libs.kotlinx.coroutines.play.services)
+
+    // H3 for hex indexing (local coverage). Real H3 if runtime ok on device; fallback grid otherwise.
+    implementation(libs.h3)
 }

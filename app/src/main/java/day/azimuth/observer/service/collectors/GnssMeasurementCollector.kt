@@ -8,7 +8,7 @@ import android.location.LocationManager
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import day.azimuth.observer.data.local.Observation
-import day.azimuth.observer.data.local.ObservationDao
+import day.azimuth.observer.data.local.ObservationRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,7 +17,7 @@ import javax.inject.Singleton
 @Singleton
 class GnssMeasurementCollector @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val observationDao: ObservationDao,
+    private val observationRepository: ObservationRepository,
     private val locationProvider: LocationProvider,
     private val gson: Gson,
 ) {
@@ -37,23 +37,22 @@ class GnssMeasurementCollector @Inject constructor(
                         extractMeasurement(m)
                     }
                     if (measurements.isNotEmpty()) {
-                        observationDao.insert(
-                            Observation(
-                                signalType = "gnss_raw",
-                                timestamp = System.currentTimeMillis(),
-                                latitude = location.latitude,
-                                longitude = location.longitude,
-                                accuracy = location.accuracy,
-                                timestampNs = event.clock.timeNanos,
-                                payload = gson.toJson(
-                                    mapOf(
-                                        "clockBiasNanos" to event.clock.biasNanos,
-                                        "clockDriftNanosPerSecond" to event.clock.driftNanosPerSecond,
-                                        "measurements" to measurements,
-                                    ),
+                        val obs = Observation(
+                            signalType = "gnss_raw",
+                            timestamp = System.currentTimeMillis(),
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            accuracy = location.accuracy,
+                            timestampNs = event.clock.timeNanos,
+                            payload = gson.toJson(
+                                mapOf(
+                                    "clockBiasNanos" to event.clock.biasNanos,
+                                    "clockDriftNanosPerSecond" to event.clock.driftNanosPerSecond,
+                                    "measurements" to measurements,
                                 ),
                             ),
                         )
+                        observationRepository.recordObservation(obs)
                     }
                 }
             }

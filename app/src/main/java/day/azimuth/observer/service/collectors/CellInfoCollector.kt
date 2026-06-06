@@ -9,7 +9,7 @@ import android.telephony.TelephonyManager
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import day.azimuth.observer.data.local.Observation
-import day.azimuth.observer.data.local.ObservationDao
+import day.azimuth.observer.data.local.ObservationRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,7 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class CellInfoCollector @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val observationDao: ObservationDao,
+    private val observationRepository: ObservationRepository,
     private val locationProvider: LocationProvider,
     private val gson: Gson,
 ) {
@@ -39,7 +39,7 @@ class CellInfoCollector @Inject constructor(
                         extractCellEntry(cellInfo)
                     }
                     if (entries.isNotEmpty()) {
-                        observationDao.insertAll(entries.map { (signalType, data) ->
+                        entries.map { (signalType, data) ->
                             Observation(
                                 signalType = signalType,
                                 timestamp = System.currentTimeMillis(),
@@ -48,7 +48,9 @@ class CellInfoCollector @Inject constructor(
                                 accuracy = location.accuracy,
                                 payload = gson.toJson(data),
                             )
-                        })
+                        }.forEach { obs ->
+                            observationRepository.recordObservation(obs)
+                        }
                     }
                 }
                 delay(SCAN_INTERVAL_MS)

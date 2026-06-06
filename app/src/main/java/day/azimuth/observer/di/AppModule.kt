@@ -12,7 +12,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import day.azimuth.observer.data.local.AzimuthDatabase
 import day.azimuth.observer.data.local.AzimuthPreferences
+import day.azimuth.observer.data.local.HexCoverageDao
+import day.azimuth.observer.data.local.HexIndexer
+import day.azimuth.observer.data.local.HexIndexerImpl
 import day.azimuth.observer.data.local.ObservationDao
+import day.azimuth.observer.data.local.ObservationRepository
 import day.azimuth.observer.data.remote.AzimuthApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -48,11 +52,27 @@ object AppModule {
             AzimuthDatabase::class.java,
             "azimuth_observations.db",
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(AzimuthDatabase.MIGRATION_2_3)
+            // fallbackToDestructiveMigration removed - real additive migration in use
             .build()
 
     @Provides
     fun provideObservationDao(db: AzimuthDatabase): ObservationDao = db.observationDao()
+
+    @Provides
+    fun provideHexCoverageDao(db: AzimuthDatabase): HexCoverageDao = db.hexCoverageDao()
+
+    @Provides
+    @Singleton
+    fun provideHexIndexer(): HexIndexer = HexIndexerImpl()
+
+    @Provides
+    @Singleton
+    fun provideObservationRepository(
+        observationDao: ObservationDao,
+        hexCoverageDao: HexCoverageDao,
+        hexIndexer: HexIndexer
+    ): ObservationRepository = ObservationRepository(observationDao, hexCoverageDao, hexIndexer)
 
     @Provides
     @Singleton

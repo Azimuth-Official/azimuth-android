@@ -11,7 +11,7 @@ import android.os.Build
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import day.azimuth.observer.data.local.Observation
-import day.azimuth.observer.data.local.ObservationDao
+import day.azimuth.observer.data.local.ObservationRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,7 +24,7 @@ import javax.inject.Singleton
 @Singleton
 class WiFiRttCollector @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val observationDao: ObservationDao,
+    private val observationRepository: ObservationRepository,
     private val locationProvider: LocationProvider,
     private val gson: Gson,
 ) {
@@ -70,16 +70,15 @@ class WiFiRttCollector @Inject constructor(
                                             )
                                         }
                                     if (successful.isNotEmpty()) {
-                                        observationDao.insert(
-                                            Observation(
-                                                signalType = "wifi_rtt",
-                                                timestamp = System.currentTimeMillis(),
-                                                latitude = loc.latitude,
-                                                longitude = loc.longitude,
-                                                accuracy = loc.accuracy,
-                                                payload = gson.toJson(successful),
-                                            ),
+                                        val obs = Observation(
+                                            signalType = "wifi_rtt",
+                                            timestamp = System.currentTimeMillis(),
+                                            latitude = loc.latitude,
+                                            longitude = loc.longitude,
+                                            accuracy = loc.accuracy,
+                                            payload = gson.toJson(successful),
                                         )
+                                        observationRepository.recordObservation(obs)
                                     }
                                 }
                             }
