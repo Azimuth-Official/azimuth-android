@@ -23,4 +23,7 @@ interface HexCoverageDao {
     // For today, a simple query; VM can filter further if needed
     @Query("SELECT * FROM hex_coverage WHERE lastSeen >= :since ORDER BY lastSeen DESC")
     fun getSince(since: Long): Flow<List<HexCoverage>>
+
+    @Query("UPDATE hex_coverage SET pendingCount = CASE WHEN pendingCount >= :count THEN pendingCount - :count ELSE 0 END WHERE h3Index = :h3Index")
+    suspend fun decrementPendingCount(h3Index: String, count: Int)
 }

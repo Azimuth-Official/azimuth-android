@@ -44,7 +44,7 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Coarse hex units where you have collected data. Local only. No raw locations shown.",
+            text = "Coverage areas where you have collected data. Local only. No raw locations or grid identifiers are shown.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -124,7 +124,7 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Legend: Units are coarse (~res 8 or grid approx). Pending may be approximate after uploads. Dashboard pending is authoritative.",
+            "Coverage is summarized locally. Exact locations and raw grid identifiers are not shown. Pending counts may be approximate after uploads.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -166,12 +166,11 @@ private fun HexRow(hex: HexCoverage) {
             .padding(vertical = 4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            val short = if (hex.h3Index.startsWith("grid")) hex.h3Index else hex.h3Index.take(10) + "..."
-            Text("Unit: $short  (res ${hex.resolution})", style = MaterialTheme.typography.bodyMedium)
+            Text("Coverage area", style = MaterialTheme.typography.titleMedium)
             Text("Last seen: ${formatTime(hex.lastSeen)}", style = MaterialTheme.typography.bodySmall)
             Text("Obs: ${hex.observationCount}  Cell:${hex.cellCount} GNSS:${hex.gnssCount} WiFi:${hex.wifiCount}", style = MaterialTheme.typography.bodySmall)
             if (hex.pendingCount > 0) {
-                Text("Pending in unit: ${hex.pendingCount} (approx)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                Text("Pending: ${hex.pendingCount} (approx)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
         }
     }

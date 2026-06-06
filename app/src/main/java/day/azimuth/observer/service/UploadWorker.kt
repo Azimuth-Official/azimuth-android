@@ -11,6 +11,8 @@ import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import day.azimuth.observer.data.local.AzimuthPreferences
+import day.azimuth.observer.data.local.HexCoverageDao
+import day.azimuth.observer.data.local.HexIndexer
 import day.azimuth.observer.data.local.ObservationDao
 import day.azimuth.observer.data.remote.AzimuthApi
 import day.azimuth.observer.data.remote.ObservationPayload
@@ -29,6 +31,8 @@ class UploadWorker @AssistedInject constructor(
     private val observationDao: ObservationDao,
     private val api: AzimuthApi,
     private val prefs: AzimuthPreferences,
+    private val hexCoverageDao: HexCoverageDao,
+    private val hexIndexer: HexIndexer,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -87,6 +91,21 @@ class UploadWorker @AssistedInject constructor(
             try {
                 val response = api.submitObservations(request)
                 observationDao.markUploaded(batch.map { it.id })
+
+                // Reconcile coverage: decrement pending counts for successfully uploaded observations
+                try {
+                    val countsByHex = mutableMapOf<String, Int>()
+                    for (obs in batch) {
+                        val h3 = hexIndexer.latLonToHex(obs.latitude, obs.longitude) ?: continue
+                        countsByHex[h3] = countsByHex.getOrDefault(h3, 0) + 1
+                    }
+                    for ((h3, count) in countsByHex) {
+                        hexCoverageDao.decrementPendingCount(h3, count)
+                    }
+                } catch (reconcileEx: Exception) {
+                    Log.w(TAG, "Coverage reconciliation failed: ${reconcileEx.message}")
+                }
+
                 totalAccepted += response.accepted
                 Log.i(TAG, "Uploaded batch: ${response.accepted} accepted")
             } catch (e: HttpException) {
