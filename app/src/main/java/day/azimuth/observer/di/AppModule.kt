@@ -1,6 +1,7 @@
 package day.azimuth.observer.di
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -10,6 +11,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import day.azimuth.observer.BuildConfig
 import day.azimuth.observer.data.local.AzimuthDatabase
 import day.azimuth.observer.data.local.AzimuthPreferences
 import day.azimuth.observer.data.local.HexCoverageDao
@@ -52,7 +54,7 @@ object AppModule {
             AzimuthDatabase::class.java,
             "azimuth_observations.db",
         )
-            .addMigrations(AzimuthDatabase.MIGRATION_2_3)
+            .addMigrations(AzimuthDatabase.MIGRATION_2_3, AzimuthDatabase.MIGRATION_3_4)
             // fallbackToDestructiveMigration removed - real additive migration in use
             .build()
 

@@ -1,6 +1,7 @@
 package day.azimuth.observer.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -8,7 +9,10 @@ import androidx.room.PrimaryKey
  * Coarse hex units (H3 res 8 or temporary grid fallback).
  * Never stores or exposes raw lat/lon or routes.
  */
-@Entity(tableName = "hex_coverage")
+@Entity(
+    tableName = "hex_coverage",
+    indices = [Index(value = ["lastSeen"], name = "index_hex_coverage_lastSeen")]
+)
 data class HexCoverage(
     @PrimaryKey val h3Index: String,
     val resolution: Int = 8,

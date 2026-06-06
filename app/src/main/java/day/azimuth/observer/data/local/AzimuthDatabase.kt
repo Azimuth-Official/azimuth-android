@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Observation::class, HexCoverage::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AzimuthDatabase : RoomDatabase() {
@@ -15,12 +15,42 @@ abstract class AzimuthDatabase : RoomDatabase() {
     abstract fun hexCoverageDao(): HexCoverageDao
 
     companion object {
-        // Additive migration 2 -> 3: creates coverage table + index only.
-        // No DROP, no rewrite of observations, no data loss.
+        private fun recreateHexCoverageTable(db: SupportSQLiteDatabase) {
+            // hex_coverage is derived from observations and can be safely rebuilt.
+            // Never drop or alter observations here.
+            db.execSQL("DROP TABLE IF EXISTS `hex_coverage`")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `hex_coverage` (" +
+                    "`h3Index` TEXT NOT NULL, " +
+                    "`resolution` INTEGER NOT NULL, " +
+                    "`firstSeen` INTEGER NOT NULL, " +
+                    "`lastSeen` INTEGER NOT NULL, " +
+                    "`observationCount` INTEGER NOT NULL, " +
+                    "`pendingCount` INTEGER NOT NULL, " +
+                    "`cellCount` INTEGER NOT NULL, " +
+                    "`gnssCount` INTEGER NOT NULL, " +
+                    "`wifiCount` INTEGER NOT NULL, " +
+                    "`latestAccuracy` REAL, " +
+                    "PRIMARY KEY(`h3Index`)" +
+                ")"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_hex_coverage_lastSeen` " +
+                    "ON `hex_coverage` (`lastSeen`)"
+            )
+        }
+
+        // MIGRATION_2_3 creates/repairs the derived hex_coverage table.
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("CREATE TABLE IF NOT EXISTS hex_coverage (h3Index TEXT PRIMARY KEY NOT NULL, resolution INTEGER NOT NULL DEFAULT 8, firstSeen INTEGER NOT NULL, lastSeen INTEGER NOT NULL, observationCount INTEGER NOT NULL DEFAULT 0, pendingCount INTEGER NOT NULL DEFAULT 0, cellCount INTEGER NOT NULL DEFAULT 0, gnssCount INTEGER NOT NULL DEFAULT 0, wifiCount INTEGER NOT NULL DEFAULT 0, latestAccuracy REAL)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_hex_coverage_lastSeen ON hex_coverage(lastSeen)")
+                recreateHexCoverageTable(db)
+            }
+        }
+
+        // MIGRATION_3_4 repairs bad v3 schemas on devices that already have version 3.
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                recreateHexCoverageTable(db)
             }
         }
     }
