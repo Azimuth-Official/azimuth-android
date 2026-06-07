@@ -14,6 +14,8 @@ class ObservationRepository @Inject constructor(
     private val hexCoverageDao: HexCoverageDao,
     private val hexIndexer: HexIndexer
 ) {
+    private val random = java.util.Random()
+
     suspend fun recordObservation(observation: Observation) {
         // Always insert the raw observation (source of truth)
         observationDao.insert(observation)
@@ -46,7 +48,9 @@ class ObservationRepository @Inject constructor(
                 cellCount = if (signal.startsWith("cell")) 1 else 0,
                 gnssCount = if (signal == "gnss_raw") 1 else 0,
                 wifiCount = if (signal.startsWith("wifi")) 1 else 0,
-                latestAccuracy = acc
+                latestAccuracy = acc,
+                gridX = random.nextInt(10),
+                gridY = random.nextInt(10)
             )
         }
         hexCoverageDao.upsert(updated)

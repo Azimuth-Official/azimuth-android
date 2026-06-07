@@ -13,6 +13,13 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
+data class SchematicCell(
+    val label: String,
+    val gridX: Int,
+    val gridY: Int,
+    val pending: Boolean
+)
+
 data class MapUiState(
     val totalHexes: Int = 0,
     val hexesToday: Int = 0,
@@ -20,7 +27,9 @@ data class MapUiState(
     val cellTotal: Int = 0,
     val gnssTotal: Int = 0,
     val wifiTotal: Int = 0,
-    val pendingApprox: Int = 0 // approximate from coverage; Dashboard is authoritative
+    val pendingApprox: Int = 0,
+    val schematicCells: List<SchematicCell> = emptyList(),
+    val schematicRowCount: Int = 0
 )
 
 @HiltViewModel
@@ -41,6 +50,15 @@ class MapViewModel @Inject constructor(
                     compareByDescending<HexCoverage> { it.pendingCount > 0 }
                         .thenByDescending { it.lastSeen }
                 )
+                val schematicList = sorted.filter { it.gridX != null && it.gridY != null }
+                    .mapIndexed { index, hex ->
+                        SchematicCell(
+                            label = "Coverage area ${index + 1}",
+                            gridX = hex.gridX!!,
+                            gridY = hex.gridY!!,
+                            pending = hex.pendingCount > 0
+                        )
+                    }
                 _uiState.value = _uiState.value.copy(
                     totalHexes = list.size,
                     hexesToday = todayList.size,
@@ -48,7 +66,9 @@ class MapViewModel @Inject constructor(
                     cellTotal = list.sumOf { it.cellCount },
                     gnssTotal = list.sumOf { it.gnssCount },
                     wifiTotal = list.sumOf { it.wifiCount },
-                    pendingApprox = list.sumOf { it.pendingCount }
+                    pendingApprox = list.sumOf { it.pendingCount },
+                    schematicCells = schematicList,
+                    schematicRowCount = schematicList.size
                 )
             }
         }

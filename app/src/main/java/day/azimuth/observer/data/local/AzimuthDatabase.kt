@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Observation::class, HexCoverage::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AzimuthDatabase : RoomDatabase() {
@@ -51,6 +51,14 @@ abstract class AzimuthDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 recreateHexCoverageTable(db)
+            }
+        }
+
+        // MIGRATION_4_5 adds schematic grid layout columns without dropping data.
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE hex_coverage ADD COLUMN gridX INTEGER")
+                db.execSQL("ALTER TABLE hex_coverage ADD COLUMN gridY INTEGER")
             }
         }
     }

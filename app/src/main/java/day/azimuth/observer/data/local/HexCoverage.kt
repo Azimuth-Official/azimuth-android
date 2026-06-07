@@ -23,5 +23,7 @@ data class HexCoverage(
     val cellCount: Int = 0,
     val gnssCount: Int = 0,
     val wifiCount: Int = 0,
-    val latestAccuracy: Float? = null
+    val latestAccuracy: Float? = null,
+    val gridX: Int? = null,
+    val gridY: Int? = null
 )

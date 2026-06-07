@@ -117,6 +117,30 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
+            text = "Coverage sketch",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Schematic view — not a precise map.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (uiState.schematicRowCount > 0) {
+            SchematicGrid(uiState.schematicCells)
+        } else {
+            Text(
+                text = "New coverage areas will appear here as schematic cells.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
             text = "Recent coverage",
             style = MaterialTheme.typography.titleMedium,
         )
@@ -244,6 +268,52 @@ private fun StatusLabel(hex: HexCoverage) {
         style = MaterialTheme.typography.labelSmall,
         color = color,
     )
+}
+
+@Composable
+private fun SchematicGrid(cells: List<SchematicCell>) {
+    val gridSize = 10
+    // Create a lookup map: Pair(x, y) -> SchematicCell for fast access
+    val cellMap = cells.associateBy { Pair(it.gridX, it.gridY) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        for (y in 0 until gridSize) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (x in 0 until gridSize) {
+                    val cell = cellMap[Pair(x, y)]
+                    val bgColor = when {
+                        cell != null && cell.pending -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                        cell != null -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .padding(1.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize()
+                                .padding(1.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (cell != null) {
+                                // Simple filled indicator
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("•", style = MaterialTheme.typography.labelSmall, color = bgColor)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun formatTime(ts: Long): String {
