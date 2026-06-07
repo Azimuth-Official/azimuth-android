@@ -20,6 +20,9 @@ interface HexCoverageDao {
     @Query("SELECT COUNT(*) FROM hex_coverage")
     fun getTotalCount(): Flow<Int>
 
+    @Query("SELECT * FROM hex_coverage")
+    suspend fun getAllSync(): List<HexCoverage>
+
     // For today, a simple query; VM can filter further if needed
     @Query("SELECT * FROM hex_coverage WHERE lastSeen >= :since ORDER BY lastSeen DESC")
     fun getSince(since: Long): Flow<List<HexCoverage>>

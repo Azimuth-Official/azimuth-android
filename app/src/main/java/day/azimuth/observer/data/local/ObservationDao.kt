@@ -14,6 +14,9 @@ interface ObservationDao {
     @Insert
     suspend fun insertAll(observations: List<Observation>)
 
+    @Query("SELECT * FROM observations LIMIT :limit OFFSET :offset")
+    suspend fun getAllForBackfillChunk(limit: Int, offset: Int): List<Observation>
+
     @Query("SELECT * FROM observations ORDER BY timestamp DESC LIMIT :limit")
     fun getRecent(limit: Int = 100): Flow<List<Observation>>
 
