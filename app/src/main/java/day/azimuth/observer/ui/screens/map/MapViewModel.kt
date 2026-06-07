@@ -37,10 +37,14 @@ class MapViewModel @Inject constructor(
             hexCoverageDao.getAll().collect { list ->
                 val todayStart = getTodayStartMillis()
                 val todayList = list.filter { it.lastSeen >= todayStart }
+                val sorted = list.sortedWith(
+                    compareByDescending<HexCoverage> { it.pendingCount > 0 }
+                        .thenByDescending { it.lastSeen }
+                )
                 _uiState.value = _uiState.value.copy(
                     totalHexes = list.size,
                     hexesToday = todayList.size,
-                    coveredHexes = list,
+                    coveredHexes = sorted,
                     cellTotal = list.sumOf { it.cellCount },
                     gnssTotal = list.sumOf { it.gnssCount },
                     wifiTotal = list.sumOf { it.wifiCount },
