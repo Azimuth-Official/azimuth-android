@@ -11,4 +11,5 @@ class AzimuthNavViewModel @Inject constructor(
     prefs: AzimuthPreferences,
 ) : ViewModel() {
     val isRegistered: Flow<Boolean> = prefs.isRegistered
+    val hasCompletedOnboarding: Flow<Boolean> = prefs.hasCompletedOnboarding
 }

@@ -106,4 +106,9 @@ dependencies {
 
     // osmdroid for interactive map (no API key, OpenStreetMap-based)
     implementation(libs.osmdroid)
+
+    // Credential Manager for Google Sign-In
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services.auth)
+    implementation(libs.googleid)
 }

@@ -21,6 +21,7 @@ data class SettingsUiState(
     val nodeId: String = "",
     val isRegistered: Boolean = false,
     val showLogoutConfirm: Boolean = false,
+    val keepScreenOn: Boolean = false,
 )
 
 @HiltViewModel
@@ -42,6 +43,7 @@ class SettingsViewModel @Inject constructor(
                 apiEndpoint = prefs.apiEndpoint.first(),
                 nodeId = prefs.nodeId.first(),
                 isRegistered = prefs.isRegistered.first(),
+                keepScreenOn = prefs.keepScreenOn.first(),
             )
         }
     }
@@ -50,6 +52,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(apiEndpoint = endpoint)
         viewModelScope.launch {
             prefs.saveApiEndpoint(endpoint)
+        }
+    }
+
+    fun setKeepScreenOn(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(keepScreenOn = enabled)
+        viewModelScope.launch {
+            prefs.setKeepScreenOn(enabled)
         }
     }
 

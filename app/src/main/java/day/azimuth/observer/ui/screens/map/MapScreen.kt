@@ -184,12 +184,14 @@ private fun OsmdroidMapView(
                             val centerLat = latBucket * scale + scale / 2.0
                             val centerLon = lonBucket * scale + scale / 2.0
                             val radius = scale / 2.0
+                            val latRad = Math.toRadians(centerLat)
+                            val lonRadius = radius / Math.cos(latRad)
 
                             (0 until 6).map { i ->
                                 val angle = Math.toRadians(60.0 * i)
                                 GeoPoint(
                                     centerLat + radius * Math.cos(angle),
-                                    centerLon + radius * Math.sin(angle)
+                                    centerLon + lonRadius * Math.sin(angle)
                                 )
                             }
                         } catch (_: Exception) {

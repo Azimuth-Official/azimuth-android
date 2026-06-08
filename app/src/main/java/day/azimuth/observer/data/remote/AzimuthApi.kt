@@ -11,9 +11,29 @@ import retrofit2.http.Path
 
 data class RegisterRequest(
     @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String,
 )
 
 data class RegisterResponse(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("api_key") val apiKey: String,
+)
+
+data class LoginRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String,
+)
+
+data class LoginResponse(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("api_key") val apiKey: String,
+)
+
+data class GoogleSignInRequest(
+    @SerializedName("id_token") val idToken: String,
+)
+
+data class GoogleSignInResponse(
     @SerializedName("user_id") val userId: String,
     @SerializedName("api_key") val apiKey: String,
 )
@@ -167,6 +187,12 @@ interface AzimuthApi {
 
     @POST("api/auth/register")
     suspend fun register(@Body request: RegisterRequest): RegisterResponse
+
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest): LoginResponse
+
+    @POST("api/auth/google")
+    suspend fun googleSignIn(@Body request: GoogleSignInRequest): GoogleSignInResponse
 
     @POST("api/auth/rotate-key")
     suspend fun rotateKey(): RotateKeyResponse

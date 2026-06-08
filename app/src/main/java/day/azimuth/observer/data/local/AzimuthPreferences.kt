@@ -2,6 +2,7 @@ package day.azimuth.observer.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,14 @@ class AzimuthPreferences @Inject constructor(
         !it[KEY_API_KEY].isNullOrEmpty() && !it[KEY_NODE_ID].isNullOrEmpty()
     }
 
+    val hasCompletedOnboarding: Flow<Boolean> = dataStore.data.map {
+        it[KEY_ONBOARDING_COMPLETE] == true
+    }
+
+    val keepScreenOn: Flow<Boolean> = dataStore.data.map {
+        it[KEY_KEEP_SCREEN_ON] == true
+    }
+
     suspend fun saveRegistration(userId: String, apiKey: String, email: String) {
         dataStore.edit {
             it[KEY_USER_ID] = userId
@@ -39,6 +48,14 @@ class AzimuthPreferences @Inject constructor(
         dataStore.edit { it[KEY_API_ENDPOINT] = endpoint }
     }
 
+    suspend fun setOnboardingComplete() {
+        dataStore.edit { it[KEY_ONBOARDING_COMPLETE] = true }
+    }
+
+    suspend fun setKeepScreenOn(enabled: Boolean) {
+        dataStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
+    }
+
     suspend fun clear() {
         dataStore.edit { it.clear() }
     }
@@ -49,5 +66,7 @@ class AzimuthPreferences @Inject constructor(
         private val KEY_NODE_ID = stringPreferencesKey("node_id")
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_API_ENDPOINT = stringPreferencesKey("api_endpoint")
+        private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
+        private val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     }
 }

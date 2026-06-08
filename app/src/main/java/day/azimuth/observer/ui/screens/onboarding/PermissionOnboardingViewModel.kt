@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import day.azimuth.observer.data.local.AzimuthPreferences
 import day.azimuth.observer.service.CollectionController
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ data class PermissionOnboardingUiState(
 class PermissionOnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val collectionController: CollectionController,
+    private val prefs: AzimuthPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PermissionOnboardingUiState())
@@ -50,6 +52,7 @@ class PermissionOnboardingViewModel @Inject constructor(
         )
         if (missing.isEmpty()) {
             viewModelScope.launch {
+                prefs.setOnboardingComplete()
                 _events.emit(PermissionOnboardingEvent.AllGranted)
             }
         }
@@ -77,6 +80,7 @@ class PermissionOnboardingViewModel @Inject constructor(
 
     fun skip() {
         viewModelScope.launch {
+            prefs.setOnboardingComplete()
             _events.emit(PermissionOnboardingEvent.Skipped)
         }
     }

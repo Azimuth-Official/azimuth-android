@@ -1,6 +1,8 @@
 package day.azimuth.observer.ui
 
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -9,6 +11,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -49,11 +52,22 @@ data class BottomNavItem(
 
 @Composable
 fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
-    val isRegistered by viewModel.isRegistered.collectAsState(initial = false)
+    val isRegistered by viewModel.isRegistered.collectAsState(initial = null as Boolean?)
+    val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsState(initial = null as Boolean?)
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val context = LocalContext.current
+
+    // Show loading state while DataStore is loading
+    if (isRegistered == null || hasCompletedOnboarding == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        )
+        return
+    }
 
     val items = listOf(
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
@@ -62,9 +76,15 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
 
-    val showBottomBar = isRegistered && currentDestination?.hierarchy?.any {
+    val showBottomBar = isRegistered == true && currentDestination?.hierarchy?.any {
         it.hasRoute(OnboardingRoute::class) || it.hasRoute(PermissionOnboardingRoute::class)
     } != true
+
+    val startDest = when {
+        isRegistered == true && hasCompletedOnboarding == true -> DashboardRoute
+        isRegistered == true -> PermissionOnboardingRoute
+        else -> OnboardingRoute
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -93,7 +113,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (isRegistered) DashboardRoute else OnboardingRoute,
+            startDestination = startDest,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable<OnboardingRoute> {
