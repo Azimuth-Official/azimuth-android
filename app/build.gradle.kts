@@ -103,4 +103,7 @@ dependencies {
 
     // H3 for hex indexing (local coverage). Real H3 if runtime ok on device; fallback grid otherwise.
     implementation(libs.h3)
+
+    // osmdroid for interactive map (no API key, OpenStreetMap-based)
+    implementation(libs.osmdroid)
 }

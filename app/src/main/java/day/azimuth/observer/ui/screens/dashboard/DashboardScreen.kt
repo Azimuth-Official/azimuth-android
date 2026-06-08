@@ -46,6 +46,15 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Collection section label
+        Text(
+            text = "Collection",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Collection control
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -79,6 +88,15 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Signal Counts section label
+        Text(
+            text = "Signal Counts",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Stats cards
         Row(
@@ -117,6 +135,15 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Uploads section label
+        Text(
+            text = "Uploads",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Upload status
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -139,6 +166,8 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -157,7 +186,7 @@ private fun StatCard(
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(

@@ -25,5 +25,12 @@ data class HexCoverage(
     val wifiCount: Int = 0,
     val latestAccuracy: Float? = null,
     val gridX: Int? = null,
-    val gridY: Int? = null
-)
+    val gridY: Int? = null,
+    val tier: String = "OWN"
+) {
+    fun getTier(): CoverageTier = try {
+        CoverageTier.valueOf(tier)
+    } catch (_: Exception) {
+        CoverageTier.OWN
+    }
+}

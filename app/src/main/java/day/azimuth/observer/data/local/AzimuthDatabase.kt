@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Observation::class, HexCoverage::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AzimuthDatabase : RoomDatabase() {
@@ -59,6 +59,13 @@ abstract class AzimuthDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE hex_coverage ADD COLUMN gridX INTEGER")
                 db.execSQL("ALTER TABLE hex_coverage ADD COLUMN gridY INTEGER")
+            }
+        }
+
+        // MIGRATION_5_6 adds coverage tier classification column.
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE hex_coverage ADD COLUMN tier TEXT NOT NULL DEFAULT 'OWN'")
             }
         }
     }

@@ -50,7 +50,8 @@ class ObservationRepository @Inject constructor(
                 wifiCount = if (signal.startsWith("wifi")) 1 else 0,
                 latestAccuracy = acc,
                 gridX = random.nextInt(10),
-                gridY = random.nextInt(10)
+                gridY = random.nextInt(10),
+                tier = "OWN"
             )
         }
         hexCoverageDao.upsert(updated)
