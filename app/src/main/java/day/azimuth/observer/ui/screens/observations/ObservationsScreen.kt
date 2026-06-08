@@ -91,20 +91,20 @@ private fun ObservationCard(observation: day.azimuth.observer.data.local.Observa
             ) {
                 // Signal type icon
                 Icon(
-                    imageVector = when (observation.signalType.lowercase()) {
-                        "cell" -> Icons.Default.SignalCellularAlt
-                        "gnss" -> Icons.Default.Satellite
-                        "wifi" -> Icons.Default.Wifi
+                    imageVector = when {
+                        observation.signalType.startsWith("cell") -> Icons.Default.SignalCellularAlt
+                        observation.signalType.startsWith("gnss") -> Icons.Default.Satellite
+                        observation.signalType.startsWith("wifi") -> Icons.Default.Wifi
                         else -> Icons.Default.SignalCellularAlt
                     },
-                    contentDescription = observation.signalType,
+                    contentDescription = formatSignalType(observation.signalType),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = observation.signalType.uppercase(),
+                        text = formatSignalType(observation.signalType),
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
@@ -146,6 +146,15 @@ private fun getAccuracyClass(accuracy: Float): String {
         accuracy < 50f -> "Medium (10-50m)"
         else -> "Low (>50m)"
     }
+}
+
+private fun formatSignalType(raw: String): String = when (raw) {
+    "cell_lte" -> "Cell LTE"
+    "cell_nr" -> "Cell NR"
+    "gnss_raw" -> "GNSS"
+    "wifi_survey" -> "Wi-Fi Survey"
+    "wifi_rtt" -> "Wi-Fi RTT"
+    else -> raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
 private fun formatRelativeTime(timestampMs: Long): String {
