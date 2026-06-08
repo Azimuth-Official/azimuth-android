@@ -107,10 +107,9 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAzimuthApi(client: OkHttpClient, prefs: AzimuthPreferences): AzimuthApi {
-        val baseUrl = runBlocking { prefs.apiEndpoint.first() }
+    fun provideAzimuthApi(client: OkHttpClient): AzimuthApi {
         return Retrofit.Builder()
-            .baseUrl(baseUrl.ifEmpty { "https://api.azimuth.day/" })
+            .baseUrl("https://api.azimuth.day/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

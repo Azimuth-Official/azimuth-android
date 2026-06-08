@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
@@ -30,6 +31,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import day.azimuth.observer.MainActivity
 import day.azimuth.observer.ui.screens.dashboard.DashboardScreen
+import day.azimuth.observer.ui.screens.leaderboard.LeaderboardScreen
 import day.azimuth.observer.ui.screens.map.MapScreen
 import day.azimuth.observer.ui.screens.observations.ObservationsScreen
 import day.azimuth.observer.ui.screens.onboarding.OnboardingScreen
@@ -40,6 +42,7 @@ import kotlinx.serialization.Serializable
 @Serializable object OnboardingRoute
 @Serializable object PermissionOnboardingRoute
 @Serializable object DashboardRoute
+@Serializable object LeaderboardRoute
 @Serializable object ObservationsRoute
 @Serializable object SettingsRoute
 @Serializable object MapRoute
@@ -72,6 +75,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     val items = listOf(
         BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
+        BottomNavItem("Leaderboard", { Icon(Icons.Default.EmojiEvents, contentDescription = "Leaderboard") }, LeaderboardRoute),
         BottomNavItem("Observations", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
@@ -140,6 +144,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
                 )
             }
             composable<DashboardRoute> { DashboardScreen() }
+            composable<LeaderboardRoute> { LeaderboardScreen() }
             composable<ObservationsRoute> { ObservationsScreen() }
             composable<MapRoute> { MapScreen() }
             composable<SettingsRoute> {

@@ -18,7 +18,6 @@ class AzimuthPreferences @Inject constructor(
     val apiKey: Flow<String> = dataStore.data.map { it[KEY_API_KEY] ?: "" }
     val nodeId: Flow<String> = dataStore.data.map { it[KEY_NODE_ID] ?: "" }
     val userId: Flow<String> = dataStore.data.map { it[KEY_USER_ID] ?: "" }
-    val apiEndpoint: Flow<String> = dataStore.data.map { it[KEY_API_ENDPOINT] ?: "https://api.azimuth.day/" }
 
     val isRegistered: Flow<Boolean> = dataStore.data.map {
         !it[KEY_API_KEY].isNullOrEmpty() && !it[KEY_NODE_ID].isNullOrEmpty()
@@ -44,10 +43,6 @@ class AzimuthPreferences @Inject constructor(
         dataStore.edit { it[KEY_NODE_ID] = nodeId }
     }
 
-    suspend fun saveApiEndpoint(endpoint: String) {
-        dataStore.edit { it[KEY_API_ENDPOINT] = endpoint }
-    }
-
     suspend fun setOnboardingComplete() {
         dataStore.edit { it[KEY_ONBOARDING_COMPLETE] = true }
     }
@@ -65,7 +60,6 @@ class AzimuthPreferences @Inject constructor(
         private val KEY_API_KEY = stringPreferencesKey("api_key")
         private val KEY_NODE_ID = stringPreferencesKey("node_id")
         private val KEY_USER_ID = stringPreferencesKey("user_id")
-        private val KEY_API_ENDPOINT = stringPreferencesKey("api_endpoint")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         private val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     }

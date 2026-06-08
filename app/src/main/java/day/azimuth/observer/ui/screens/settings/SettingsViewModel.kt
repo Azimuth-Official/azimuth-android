@@ -17,7 +17,6 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val email: String = "",
-    val apiEndpoint: String = "https://api.azimuth.day/",
     val nodeId: String = "",
     val isRegistered: Boolean = false,
     val showLogoutConfirm: Boolean = false,
@@ -40,18 +39,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = SettingsUiState(
                 email = prefs.email.first(),
-                apiEndpoint = prefs.apiEndpoint.first(),
                 nodeId = prefs.nodeId.first(),
                 isRegistered = prefs.isRegistered.first(),
                 keepScreenOn = prefs.keepScreenOn.first(),
             )
-        }
-    }
-
-    fun setApiEndpoint(endpoint: String) {
-        _uiState.value = _uiState.value.copy(apiEndpoint = endpoint)
-        viewModelScope.launch {
-            prefs.saveApiEndpoint(endpoint)
         }
     }
 

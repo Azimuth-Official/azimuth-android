@@ -6,6 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 // ─── Auth ────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ data class NodeInfo(
     val status: String,
     @SerializedName("registered_at") val registeredAt: String,
     @SerializedName("last_seen_at") val lastSeenAt: String?,
+    @SerializedName("animal_name") val animalName: String? = null,
 )
 
 data class ListNodesResponse(
@@ -110,6 +112,7 @@ data class SubmitObservationsRequest(
 
 data class SubmitObservationsResponse(
     val accepted: Int,
+    @SerializedName("points_earned") val pointsEarned: Int = 0,
 )
 
 // ─── Rewards ─────────────────────────────────────────────────────────
@@ -181,6 +184,51 @@ data class GetGlobalCoverageResponse(
     val hexes: List<GlobalCoverageHex>,
 )
 
+// ─── Points ──────────────────────────────────────────────────────────
+
+data class PointEntry(
+    val id: String,
+    val amount: Int,
+    val reason: String,
+    @SerializedName("reference_id") val referenceId: String?,
+    @SerializedName("created_at") val createdAt: String,
+)
+
+data class PointsResponse(
+    val balance: Int,
+    val history: List<PointEntry>,
+)
+
+// ─── Referral ────────────────────────────────────────────────────────
+
+data class ReferralEntry(
+    @SerializedName("referee_id") val refereeId: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("bonus_awarded") val bonusAwarded: Boolean,
+)
+
+data class ReferralResponse(
+    @SerializedName("referral_code") val referralCode: String,
+    @SerializedName("referral_count") val referralCount: Int,
+    @SerializedName("total_bonus_points") val totalBonusPoints: Int,
+    val referrals: List<ReferralEntry>,
+)
+
+// ─── Leaderboard ─────────────────────────────────────────────────────
+
+data class LeaderboardEntry(
+    val rank: Int,
+    @SerializedName("animal_name") val animalName: String,
+    val points: Int,
+    @SerializedName("observation_count") val observationCount: Int,
+)
+
+data class LeaderboardResponse(
+    val period: String,
+    val entries: List<LeaderboardEntry>,
+    @SerializedName("total_participants") val totalParticipants: Int,
+)
+
 // ─── API Interface ───────────────────────────────────────────────────
 
 interface AzimuthApi {
@@ -229,4 +277,16 @@ interface AzimuthApi {
 
     @GET("api/coverage")
     suspend fun getGlobalCoverage(): GetGlobalCoverageResponse
+
+    @GET("api/points/mine")
+    suspend fun getMyPoints(@Query("limit") limit: Int = 50): PointsResponse
+
+    @GET("api/referral/mine")
+    suspend fun getMyReferral(): ReferralResponse
+
+    @GET("api/leaderboard")
+    suspend fun getLeaderboard(
+        @Query("period") period: String = "alltime",
+        @Query("limit") limit: Int = 50,
+    ): LeaderboardResponse
 }

@@ -90,24 +90,38 @@ class UploadWorker @AssistedInject constructor(
 
             try {
                 val response = api.submitObservations(request)
-                observationDao.markUploaded(batch.map { it.id })
 
-                // Reconcile coverage: decrement pending counts for successfully uploaded observations
-                try {
-                    val countsByHex = mutableMapOf<String, Int>()
-                    for (obs in batch) {
-                        val h3 = hexIndexer.latLonToHex(obs.latitude, obs.longitude) ?: continue
-                        countsByHex[h3] = countsByHex.getOrDefault(h3, 0) + 1
-                    }
-                    for ((h3, count) in countsByHex) {
-                        hexCoverageDao.decrementPendingCount(h3, count)
-                    }
-                } catch (reconcileEx: Exception) {
-                    Log.w(TAG, "Coverage reconciliation failed: ${reconcileEx.message}")
+                // Validate partial accept: if fewer than batch size were accepted, log a warning
+                val batchSize = batch.size
+                if (response.accepted < batchSize) {
+                    Log.w(TAG, "Partial accept: ${response.accepted}/$batchSize observations accepted")
                 }
 
-                totalAccepted += response.accepted
-                Log.i(TAG, "Uploaded batch: ${response.accepted} accepted")
+                // If API returned 0 accepted on success, something is wrong - do not mark as uploaded
+                if (response.accepted == 0) {
+                    Log.e(TAG, "API accepted 0 observations; will not mark batch as uploaded and will retry")
+                    hadFailure = true
+                } else {
+                    // Mark all observations as uploaded (dedup ensures they're already on server)
+                    observationDao.markUploaded(batch.map { it.id })
+
+                    // Reconcile coverage: decrement pending counts for successfully uploaded observations
+                    try {
+                        val countsByHex = mutableMapOf<String, Int>()
+                        for (obs in batch) {
+                            val h3 = hexIndexer.latLonToHex(obs.latitude, obs.longitude) ?: continue
+                            countsByHex[h3] = countsByHex.getOrDefault(h3, 0) + 1
+                        }
+                        for ((h3, count) in countsByHex) {
+                            hexCoverageDao.decrementPendingCount(h3, count)
+                        }
+                    } catch (reconcileEx: Exception) {
+                        Log.w(TAG, "Coverage reconciliation failed: ${reconcileEx.message}")
+                    }
+
+                    totalAccepted += response.accepted
+                    Log.i(TAG, "Uploaded batch: ${response.accepted} accepted")
+                }
             } catch (e: HttpException) {
                 when (e.code()) {
                     401, 403 -> {

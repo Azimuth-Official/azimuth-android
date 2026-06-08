@@ -5,6 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import day.azimuth.observer.data.local.ObservationDao
+import day.azimuth.observer.data.remote.AzimuthApi
+import day.azimuth.observer.data.remote.LeaderboardEntry
+import day.azimuth.observer.data.remote.ListRewardsResponse
+import day.azimuth.observer.data.remote.NetworkStats
+import day.azimuth.observer.data.remote.NodeInfo
+import day.azimuth.observer.data.remote.PointsResponse
+import day.azimuth.observer.data.remote.ReferralResponse
 import day.azimuth.observer.service.CollectionController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,12 +28,19 @@ data class DashboardUiState(
     val pendingUploads: Int = 0,
     val lastUploadStatus: String = "",
     val permissionBlocked: Boolean = false,
+    val pointsBalance: Int = 0,
+    val networkStats: NetworkStats? = null,
+    val myNodes: List<NodeInfo> = emptyList(),
+    val recentRewards: ListRewardsResponse? = null,
+    val referral: ReferralResponse? = null,
+    val loadingError: String = "",
 )
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val collectionController: CollectionController,
     private val observationDao: ObservationDao,
+    private val api: AzimuthApi,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -38,6 +52,12 @@ class DashboardViewModel @Inject constructor(
     private var wifiRttCount: Long = 0
 
     init {
+        // Fetch API data
+        fetchNetworkStats()
+        fetchMyNodes()
+        fetchMyRewards()
+        fetchMyPoints()
+        fetchMyReferral()
         viewModelScope.launch {
             observationDao.getCountByType("cell_lte").collect { count ->
                 cellLteCount = count
@@ -112,6 +132,66 @@ class DashboardViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             isCollecting = collectionController.isCollectionActive(),
         )
+    }
+
+    private fun fetchNetworkStats() {
+        viewModelScope.launch {
+            try {
+                val stats = api.getStats()
+                _uiState.value = _uiState.value.copy(networkStats = stats, loadingError = "")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch network stats: ${e.message}")
+                // Don't block UI on stats failure
+            }
+        }
+    }
+
+    private fun fetchMyNodes() {
+        viewModelScope.launch {
+            try {
+                val response = api.getMyNodes()
+                _uiState.value = _uiState.value.copy(myNodes = response.nodes, loadingError = "")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch my nodes: ${e.message}")
+                // Don't block UI on nodes failure
+            }
+        }
+    }
+
+    private fun fetchMyRewards() {
+        viewModelScope.launch {
+            try {
+                val rewards = api.getMyRewards()
+                _uiState.value = _uiState.value.copy(recentRewards = rewards, loadingError = "")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch my rewards: ${e.message}")
+                // Don't block UI on rewards failure
+            }
+        }
+    }
+
+    private fun fetchMyPoints() {
+        viewModelScope.launch {
+            try {
+                val points = api.getMyPoints(limit = 50)
+                _uiState.value = _uiState.value.copy(pointsBalance = points.balance, loadingError = "")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch my points: ${e.message}")
+                // Don't block UI on points failure
+            }
+        }
+    }
+
+    private fun fetchMyReferral() {
+        viewModelScope.launch {
+            try {
+                val referral = api.getMyReferral()
+                _uiState.value = _uiState.value.copy(referral = referral, loadingError = "")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch my referral: ${e.message}")
+                // Don't block UI on referral failure
+            }
+        }
     }
 
     companion object {

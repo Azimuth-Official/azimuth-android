@@ -154,26 +154,6 @@ fun SettingsScreen(
         // Permissions card
         PermissionsCard(context = context)
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // API Endpoint card
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "API Endpoint",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = uiState.apiEndpoint,
-                    onValueChange = viewModel::setApiEndpoint,
-                    label = { Text("Endpoint URL") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
-        }
-
         Spacer(modifier = Modifier.height(32.dp))
 
         // App version info at bottom
