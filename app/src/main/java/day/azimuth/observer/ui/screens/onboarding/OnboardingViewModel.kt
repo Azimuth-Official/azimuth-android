@@ -1,10 +1,20 @@
 package day.azimuth.observer.ui.screens.onboarding
 
+import android.content.Context
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import dagger.hilt.android.lifecycle.HiltViewModel
+import day.azimuth.observer.R
 import day.azimuth.observer.data.local.AzimuthPreferences
 import day.azimuth.observer.data.remote.AzimuthApi
+import day.azimuth.observer.data.remote.GoogleSignInRequest
 import day.azimuth.observer.data.remote.LoginRequest
 import day.azimuth.observer.data.remote.RegisterNodeRequest
 import day.azimuth.observer.data.remote.RegisterRequest
@@ -72,32 +82,11 @@ class OnboardingViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val loginResponse = api.login(LoginRequest(email = email, password = password))
-                prefs.saveRegistration(
+                completeAuthAndRegisterNode(
                     userId = loginResponse.userId,
                     apiKey = loginResponse.apiKey,
                     email = email,
                 )
-
-                // Fetch existing nodes or register a new one
-                try {
-                    val nodesResponse = api.getMyNodes()
-                    if (nodesResponse.nodes.isNotEmpty()) {
-                        prefs.saveNodeId(nodesResponse.nodes.first().id)
-                    } else {
-                        val nodeResponse = api.registerNode(
-                            RegisterNodeRequest(hardwareType = "tier0_mobile"),
-                        )
-                        prefs.saveNodeId(nodeResponse.nodeId)
-                    }
-                } catch (e: Exception) {
-                    // If getMyNodes fails, just register a new node
-                    val nodeResponse = api.registerNode(
-                        RegisterNodeRequest(hardwareType = "tier0_mobile"),
-                    )
-                    prefs.saveNodeId(nodeResponse.nodeId)
-                }
-
-                _uiState.value = _uiState.value.copy(isLoading = false, isComplete = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -131,18 +120,11 @@ class OnboardingViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val authResponse = api.register(RegisterRequest(email = email, password = password))
-                prefs.saveRegistration(
+                completeAuthAndRegisterNode(
                     userId = authResponse.userId,
                     apiKey = authResponse.apiKey,
                     email = email,
                 )
-
-                val nodeResponse = api.registerNode(
-                    RegisterNodeRequest(hardwareType = "tier0_mobile"),
-                )
-                prefs.saveNodeId(nodeResponse.nodeId)
-
-                _uiState.value = _uiState.value.copy(isLoading = false, isComplete = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -150,5 +132,69 @@ class OnboardingViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    fun googleSignIn(context: Context) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val credentialManager = CredentialManager.create(context)
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setServerClientId(context.getString(R.string.google_web_client_id))
+                    .setFilterByAuthorizedAccounts(false)
+                    .build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                val result = credentialManager.getCredential(context, request)
+                val googleCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+                val idToken = googleCredential.idToken
+
+                val response = api.googleSignIn(GoogleSignInRequest(idToken = idToken))
+                completeAuthAndRegisterNode(
+                    userId = response.userId,
+                    apiKey = response.apiKey,
+                    email = googleCredential.id,
+                )
+            } catch (e: GetCredentialCancellationException) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            } catch (e: NoCredentialException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No Google account found on this device",
+                )
+            } catch (e: GetCredentialException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Google sign-in failed. Please try again.",
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Sign-in failed",
+                )
+            }
+        }
+    }
+
+    private suspend fun completeAuthAndRegisterNode(userId: String, apiKey: String, email: String) {
+        prefs.saveRegistration(userId = userId, apiKey = apiKey, email = email)
+        try {
+            val nodesResponse = api.getMyNodes()
+            if (nodesResponse.nodes.isNotEmpty()) {
+                prefs.saveNodeId(nodesResponse.nodes.first().id)
+            } else {
+                val nodeResponse = api.registerNode(
+                    RegisterNodeRequest(hardwareType = "tier0_mobile"),
+                )
+                prefs.saveNodeId(nodeResponse.nodeId)
+            }
+        } catch (e: Exception) {
+            val nodeResponse = api.registerNode(
+                RegisterNodeRequest(hardwareType = "tier0_mobile"),
+            )
+            prefs.saveNodeId(nodeResponse.nodeId)
+        }
+        _uiState.value = _uiState.value.copy(isLoading = false, isComplete = true)
     }
 }

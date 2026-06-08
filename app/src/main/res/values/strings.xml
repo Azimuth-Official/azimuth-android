@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Azimuth Observer</string>
+    <string name="google_web_client_id">61043824307-d06csa83in29h8o6dl50hf8vphs3g6q4.apps.googleusercontent.com</string>
 </resources>

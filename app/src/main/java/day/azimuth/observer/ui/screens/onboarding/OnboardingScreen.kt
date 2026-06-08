@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -182,12 +183,13 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            val context = LocalContext.current
             OutlinedButton(
-                onClick = {},
+                onClick = { viewModel.googleSignIn(context) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = false,
+                enabled = !uiState.isLoading,
             ) {
-                Text("Continue with Google (coming soon)")
+                Text("Continue with Google")
             }
         }
     }
