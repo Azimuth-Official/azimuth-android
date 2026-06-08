@@ -2,6 +2,7 @@ package day.azimuth.observer.ui.screens.map
 
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,13 +59,44 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
             // Layer 1: Interactive map (full bleed)
             OsmdroidMapView(
                 hexes = uiState.coveredHexes,
+                onHexTapped = { hex -> viewModel.setTappedHex(hex) },
                 modifier = Modifier.fillMaxSize()
             )
 
             // Layer 2: Privacy banner (top, semi-transparent)
             PrivacyBanner(modifier = Modifier.align(Alignment.TopCenter))
 
-            // Layer 3: Stats overlay card (bottom)
+            // Layer 2.5: Backfill progress banner (if running/failed)
+            if (uiState.backfillState == BackfillState.RUNNING) {
+                BackfillBanner(
+                    state = uiState.backfillState,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 100.dp)
+                )
+            } else if (uiState.backfillState == BackfillState.FAILED) {
+                BackfillBanner(
+                    state = uiState.backfillState,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 100.dp)
+                )
+            }
+
+            // Layer 3: Tapped hex info card (if any hex is tapped)
+            val tapped = uiState.tappedHex
+            if (tapped != null) {
+                TappedHexCard(
+                    hex = tapped,
+                    onDismiss = { viewModel.setTappedHex(null) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 120.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth()
+                )
+            }
+
+            // Layer 4: Stats overlay card (bottom)
             CoverageStatsCard(
                 uiState = uiState,
                 modifier = Modifier
@@ -78,11 +111,13 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
 @Composable
 private fun OsmdroidMapView(
     hexes: List<HexCoverage>,
+    onHexTapped: (HexCoverage) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val hexByPolygon = remember { mutableMapOf<Polygon, HexCoverage>() }
 
     AndroidView(
         factory = { ctx ->
@@ -114,6 +149,7 @@ private fun OsmdroidMapView(
         },
         update = { mapView ->
             mapView.overlays.clear()
+            hexByPolygon.clear()
 
             val h3Core = try {
                 com.uber.h3core.H3Core.newInstance()
@@ -122,6 +158,8 @@ private fun OsmdroidMapView(
             }
 
             val allPoints = mutableListOf<GeoPoint>()
+            val otherPolygons = mutableListOf<Polygon>()
+            val ownPolygons = mutableListOf<Polygon>()
 
             for (hex in hexes) {
                 val tier = hex.getTier()
@@ -174,9 +212,24 @@ private fun OsmdroidMapView(
                     fillPaint.color = fillColor
                     outlinePaint.color = AndroidColor.argb(200, 255, 255, 255)
                     outlinePaint.strokeWidth = 2f
+                    setOnClickListener { _, _, _ ->
+                        onHexTapped(hex)
+                        true
+                    }
                 }
-                mapView.overlays.add(polygon)
+                hexByPolygon[polygon] = hex
+
+                // Z-order: add OTHER tier polygons to otherPolygons, OWN to ownPolygons
+                if (tier == CoverageTier.OWN) {
+                    ownPolygons.add(polygon)
+                } else {
+                    otherPolygons.add(polygon)
+                }
             }
+
+            // Add OTHER tier first (render below), then OWN (render on top)
+            otherPolygons.forEach { mapView.overlays.add(it) }
+            ownPolygons.forEach { mapView.overlays.add(it) }
 
             if (allPoints.isNotEmpty()) {
                 val centerLat = allPoints.map { it.latitude }.average()
@@ -309,6 +362,76 @@ private fun StatBadge(
 }
 
 @Composable
+private fun BackfillBanner(
+    state: BackfillState,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.fillMaxWidth().padding(16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when (state) {
+                BackfillState.RUNNING -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Backfilling coverage data...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                BackfillState.FAILED -> {
+                    Text(
+                        text = "Coverage backfill incomplete",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                else -> {}
+            }
+        }
+    }
+}
+
+@Composable
+private fun TappedHexCard(
+    hex: HexCoverage,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable { onDismiss() }
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Coverage area",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${hex.cellCount + hex.gnssCount + hex.wifiCount} observations " +
+                    "(${hex.cellCount} cell, ${hex.gnssCount} GNSS, ${hex.wifiCount} Wi-Fi)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tap elsewhere to dismiss",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptyMapState() {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -334,6 +457,13 @@ private fun EmptyMapState() {
                 text = "Start observing to light up your first hex on the map. All data stays on this device.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Walk around with the app to light up new hexes!",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
                 textAlign = TextAlign.Center,
             )
         }

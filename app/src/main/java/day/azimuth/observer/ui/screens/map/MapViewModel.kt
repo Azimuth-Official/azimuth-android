@@ -1,8 +1,11 @@
 package day.azimuth.observer.ui.screens.map
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +15,10 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
+enum class BackfillState {
+    IDLE, RUNNING, SUCCEEDED, FAILED
+}
+
 data class MapUiState(
     val totalHexes: Int = 0,
     val hexesToday: Int = 0,
@@ -19,12 +26,15 @@ data class MapUiState(
     val cellTotal: Int = 0,
     val gnssTotal: Int = 0,
     val wifiTotal: Int = 0,
-    val pendingApprox: Int = 0
+    val pendingApprox: Int = 0,
+    val tappedHex: HexCoverage? = null,
+    val backfillState: BackfillState = BackfillState.IDLE
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val hexCoverageDao: HexCoverageDao
+    private val hexCoverageDao: HexCoverageDao,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -50,6 +60,33 @@ class MapViewModel @Inject constructor(
                 )
             }
         }
+
+        observeBackfillWork()
+    }
+
+    private fun observeBackfillWork() {
+        viewModelScope.launch {
+            try {
+                val workManager = WorkManager.getInstance(context)
+                workManager.getWorkInfosForUniqueWorkFlow("azimuth_coverage_backfill")
+                    .collect { workInfoList ->
+                        val newState = when {
+                            workInfoList.isEmpty() -> BackfillState.IDLE
+                            workInfoList.any { it.state == androidx.work.WorkInfo.State.RUNNING } -> BackfillState.RUNNING
+                            workInfoList.any { it.state == androidx.work.WorkInfo.State.SUCCEEDED } -> BackfillState.SUCCEEDED
+                            workInfoList.any { it.state == androidx.work.WorkInfo.State.FAILED } -> BackfillState.FAILED
+                            else -> BackfillState.IDLE
+                        }
+                        _uiState.value = _uiState.value.copy(backfillState = newState)
+                    }
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(backfillState = BackfillState.IDLE)
+            }
+        }
+    }
+
+    fun setTappedHex(hex: HexCoverage?) {
+        _uiState.value = _uiState.value.copy(tappedHex = hex)
     }
 
     private fun getTodayStartMillis(): Long {

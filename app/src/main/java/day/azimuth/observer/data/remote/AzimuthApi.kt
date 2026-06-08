@@ -121,6 +121,46 @@ data class NetworkStats(
     @SerializedName("total_rewards_distributed") val totalRewardsDistributed: String,
 )
 
+// ─── Coverage Sync ──────────────────────────────────────────────────
+
+data class CoverageHexUpload(
+    @SerializedName("h3_index") val h3Index: String,
+    @SerializedName("observation_count") val observationCount: Int,
+    @SerializedName("signal_types") val signalTypes: List<String>,
+    @SerializedName("first_seen") val firstSeen: String,
+    @SerializedName("last_seen") val lastSeen: String,
+)
+
+data class PostCoverageRequest(
+    val hexes: List<CoverageHexUpload>,
+)
+
+data class PostCoverageResponse(
+    val synced: Int,
+)
+
+data class MyCoverageHex(
+    @SerializedName("h3_index") val h3Index: String,
+    @SerializedName("observation_count") val observationCount: Int,
+    @SerializedName("signal_types") val signalTypes: List<String>,
+    @SerializedName("first_seen") val firstSeen: String,
+    @SerializedName("last_seen") val lastSeen: String,
+)
+
+data class GetMyCoverageResponse(
+    val hexes: List<MyCoverageHex>,
+)
+
+data class GlobalCoverageHex(
+    @SerializedName("h3_index") val h3Index: String,
+    @SerializedName("contributor_count") val contributorCount: Int,
+    @SerializedName("total_observations") val totalObservations: Long,
+)
+
+data class GetGlobalCoverageResponse(
+    val hexes: List<GlobalCoverageHex>,
+)
+
 // ─── API Interface ───────────────────────────────────────────────────
 
 interface AzimuthApi {
@@ -154,4 +194,13 @@ interface AzimuthApi {
 
     @GET("api/stats")
     suspend fun getStats(): NetworkStats
+
+    @POST("api/coverage")
+    suspend fun postCoverage(@Body request: PostCoverageRequest): PostCoverageResponse
+
+    @GET("api/coverage/mine")
+    suspend fun getMyCoverage(): GetMyCoverageResponse
+
+    @GET("api/coverage")
+    suspend fun getGlobalCoverage(): GetGlobalCoverageResponse
 }

@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -21,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -98,39 +103,76 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Stats cards
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // Check if all stats are zero
+        if (uiState.cellTowerCount == 0L && uiState.gnssSatelliteCount == 0L &&
+            uiState.wifiApCount == 0L && uiState.totalObservations == 0L
         ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                label = "Cell Towers",
-                value = uiState.cellTowerCount.toString(),
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                label = "GNSS Sats",
-                value = uiState.gnssSatelliteCount.toString(),
-            )
-        }
+            // Welcome empty state
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sensors,
+                        contentDescription = "Welcome",
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Welcome to Azimuth Observer",
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Start collecting signal observations to populate your dashboard. Tap Start above to begin.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            // Normal stat cards
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Cell Towers",
+                    value = uiState.cellTowerCount.toString(),
+                )
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    label = "GNSS Sats",
+                    value = uiState.gnssSatelliteCount.toString(),
+                )
+            }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                label = "WiFi APs",
-                value = uiState.wifiApCount.toString(),
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                label = "Observations",
-                value = uiState.totalObservations.toString(),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    label = "WiFi APs",
+                    value = uiState.wifiApCount.toString(),
+                )
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Observations",
+                    value = uiState.totalObservations.toString(),
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

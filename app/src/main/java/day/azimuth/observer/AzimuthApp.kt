@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import day.azimuth.observer.service.CoverageBackfillWorker
+import day.azimuth.observer.service.CoverageSyncWorker
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -21,5 +22,6 @@ class AzimuthApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         CoverageBackfillWorker.enqueue(this)
+        CoverageSyncWorker.enqueue(this)
     }
 }
