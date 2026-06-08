@@ -1,1 +1,0 @@
--keep,allowobfuscation,allowshrinking class day.azimuth.observer.ui.screens.onboarding.OnboardingViewModel
