@@ -1,5 +1,9 @@
 package day.azimuth.observer.ui.screens.map
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,12 +17,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -44,13 +56,106 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polygon
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+
+// ─── Custom location icons ──────────────────────────────────────────
+
+private fun createLocationDot(density: Float): Bitmap {
+    val sizePx = (24 * density).toInt()
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = sizePx / 2f
+    val cy = sizePx / 2f
+
+    // Outer glow ring
+    val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x4006B6D4.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, sizePx / 2f, glowPaint)
+
+    // Inner solid dot
+    val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF06B6D4.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, sizePx / 3f, dotPaint)
+
+    // White border
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * density
+    }
+    canvas.drawCircle(cx, cy, sizePx / 3f, borderPaint)
+
+    return bitmap
+}
+
+private fun createDirectionArrow(density: Float): Bitmap {
+    val sizePx = (32 * density).toInt()
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = sizePx / 2f
+    val cy = sizePx / 2f
+
+    // Outer glow ring (larger for arrow variant)
+    val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x3006B6D4.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, sizePx * 0.42f, glowPaint)
+
+    // Inner dot
+    val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF06B6D4.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, sizePx / 4f, dotPaint)
+
+    // White border on dot
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * density
+    }
+    canvas.drawCircle(cx, cy, sizePx / 4f, borderPaint)
+
+    // Direction arrow (triangle pointing UP from center)
+    val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF06B6D4.toInt()
+        style = Paint.Style.FILL
+    }
+    val arrowPath = Path().apply {
+        val arrowTip = cy - sizePx * 0.45f
+        val arrowBase = cy - sizePx * 0.15f
+        val arrowHalfWidth = sizePx * 0.12f
+        moveTo(cx, arrowTip)
+        lineTo(cx - arrowHalfWidth, arrowBase)
+        lineTo(cx + arrowHalfWidth, arrowBase)
+        close()
+    }
+    canvas.drawPath(arrowPath, arrowPaint)
+
+    // Arrow white outline
+    val arrowBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 1f * density
+    }
+    canvas.drawPath(arrowPath, arrowBorder)
+
+    return bitmap
+}
+
+// ─── Map screen ─────────────────────────────────────────────────────
 
 @Composable
 fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val mapViewRef = remember { mutableStateOf<MapView?>(null) }
+    val locationOverlayRef = remember { mutableStateOf<MyLocationNewOverlay?>(null) }
 
     if (uiState.coveredHexes.isEmpty()) {
         EmptyMapState()
@@ -60,30 +165,42 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
             OsmdroidMapView(
                 hexes = uiState.coveredHexes,
                 onHexTapped = { hex -> viewModel.setTappedHex(hex) },
+                mapViewRef = mapViewRef,
+                locationOverlayRef = locationOverlayRef,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Layer 2: Privacy banner (top, semi-transparent)
-            PrivacyBanner(modifier = Modifier.align(Alignment.TopCenter))
-
-            // Layer 2.5: Backfill progress banner (if running/failed)
-            if (uiState.backfillState == BackfillState.RUNNING) {
+            // Backfill progress banner (if running/failed)
+            if (uiState.backfillState == BackfillState.RUNNING ||
+                uiState.backfillState == BackfillState.FAILED
+            ) {
                 BackfillBanner(
                     state = uiState.backfillState,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = 100.dp)
-                )
-            } else if (uiState.backfillState == BackfillState.FAILED) {
-                BackfillBanner(
-                    state = uiState.backfillState,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 100.dp)
+                        .padding(top = 16.dp)
                 )
             }
 
-            // Layer 3: Tapped hex info card (if any hex is tapped)
+            // Map controls (right side): my-location + zoom
+            MapControls(
+                onMyLocation = {
+                    locationOverlayRef.value?.let { overlay ->
+                        overlay.enableFollowLocation()
+                        val loc = overlay.myLocation
+                        if (loc != null) {
+                            mapViewRef.value?.controller?.animateTo(loc, 16.0, null)
+                        }
+                    }
+                },
+                onZoomIn = { mapViewRef.value?.controller?.zoomIn() },
+                onZoomOut = { mapViewRef.value?.controller?.zoomOut() },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp)
+            )
+
+            // Tapped hex info card
             val tapped = uiState.tappedHex
             if (tapped != null) {
                 TappedHexCard(
@@ -91,37 +208,107 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
                     onDismiss = { viewModel.setTappedHex(null) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 120.dp, start = 16.dp, end = 16.dp)
+                        .padding(bottom = 80.dp, start = 8.dp, end = 8.dp)
                         .fillMaxWidth()
                 )
             }
 
-            // Layer 4: Stats overlay card (bottom)
+            // Stats overlay card (bottom)
             CoverageStatsCard(
                 uiState = uiState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp)
+                    .padding(8.dp)
                     .fillMaxWidth()
             )
         }
     }
 }
 
+// ─── Map controls ───────────────────────────────────────────────────
+
+@Composable
+private fun MapControls(
+    onMyLocation: () -> Unit,
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // My location button
+        Surface(
+            shape = CircleShape,
+            tonalElevation = 4.dp,
+            shadowElevation = 2.dp,
+        ) {
+            IconButton(onClick = onMyLocation, modifier = Modifier.size(44.dp)) {
+                Icon(
+                    Icons.Default.MyLocation,
+                    contentDescription = "My location",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Zoom buttons
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            tonalElevation = 4.dp,
+            shadowElevation = 2.dp,
+        ) {
+            Column {
+                IconButton(onClick = onZoomIn, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Zoom in",
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                        .align(Alignment.CenterHorizontally)
+                )
+                IconButton(onClick = onZoomOut, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Zoom out",
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── OSMdroid map view ──────────────────────────────────────────────
+
 @Composable
 private fun OsmdroidMapView(
     hexes: List<HexCoverage>,
     onHexTapped: (HexCoverage) -> Unit = {},
+    mapViewRef: androidx.compose.runtime.MutableState<MapView?>,
+    locationOverlayRef: androidx.compose.runtime.MutableState<MyLocationNewOverlay?>,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val mapViewRef = remember { mutableStateOf<MapView?>(null) }
+    val hasInitializedCamera = remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val hexByPolygon = remember { mutableMapOf<Polygon, HexCoverage>() }
 
     AndroidView(
         factory = { ctx ->
             Configuration.getInstance().userAgentValue = ctx.packageName
+            val density = ctx.resources.displayMetrics.density
 
             MapView(ctx).apply {
                 setTileSource(
@@ -144,11 +331,25 @@ private fun OsmdroidMapView(
                 )
                 minZoomLevel = 4.0
                 maxZoomLevel = 18.0
+
+                // Location overlay with custom cyan icons
+                val locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(ctx), this).apply {
+                    setDirectionArrow(
+                        createLocationDot(density),
+                        createDirectionArrow(density),
+                    )
+                    enableMyLocation()
+                    enableFollowLocation()
+                }
+                overlays.add(locationOverlay)
+                locationOverlayRef.value = locationOverlay
+
                 mapViewRef.value = this
             }
         },
         update = { mapView ->
-            mapView.overlays.clear()
+            // Remove only hex polygons, keep location overlay
+            mapView.overlays.removeAll { it is Polygon }
             hexByPolygon.clear()
 
             val h3Core = try {
@@ -221,7 +422,6 @@ private fun OsmdroidMapView(
                 }
                 hexByPolygon[polygon] = hex
 
-                // Z-order: add OTHER tier polygons to otherPolygons, OWN to ownPolygons
                 if (tier == CoverageTier.OWN) {
                     ownPolygons.add(polygon)
                 } else {
@@ -229,15 +429,19 @@ private fun OsmdroidMapView(
                 }
             }
 
-            // Add OTHER tier first (render below), then OWN (render on top)
+            // Z-order: OTHER below, OWN on top
             otherPolygons.forEach { mapView.overlays.add(it) }
             ownPolygons.forEach { mapView.overlays.add(it) }
 
-            if (allPoints.isNotEmpty()) {
+            // Center on hex coverage only on first load
+            if (allPoints.isNotEmpty() && !hasInitializedCamera.value) {
+                hasInitializedCamera.value = true
                 val centerLat = allPoints.map { it.latitude }.average()
                 val centerLon = allPoints.map { it.longitude }.average()
                 mapView.controller.setCenter(GeoPoint(centerLat, centerLon))
                 mapView.controller.setZoom(14.0)
+                locationOverlayRef.value?.disableFollowLocation()
+                mapView.postDelayed({ locationOverlayRef.value?.enableFollowLocation() }, 2000)
             }
 
             mapView.invalidate()
@@ -255,28 +459,14 @@ private fun OsmdroidMapView(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            locationOverlayRef.value?.disableMyLocation()
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapViewRef.value?.onDetach()
         }
     }
 }
 
-@Composable
-private fun PrivacyBanner(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier
-            .padding(16.dp)
-            .fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "Approximate coverage areas from your local observations. Exact locations and raw identifiers are not shown.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
+// ─── Supporting composables ─────────────────────────────────────────
 
 @Composable
 private fun CoverageStatsCard(
@@ -284,7 +474,7 @@ private fun CoverageStatsCard(
     modifier: Modifier = Modifier
 ) {
     Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -301,7 +491,7 @@ private fun CoverageStatsCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -324,12 +514,11 @@ private fun CoverageStatsCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = "Pending: ${uiState.pendingApprox}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
@@ -368,7 +557,7 @@ private fun BackfillBanner(
     state: BackfillState,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier = modifier.fillMaxWidth().padding(16.dp)) {
+    Card(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -411,23 +600,17 @@ private fun TappedHexCard(
     Card(
         modifier = modifier.clickable { onDismiss() }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = "Coverage area",
                 style = MaterialTheme.typography.titleSmall,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${hex.cellCount + hex.gnssCount + hex.wifiCount} observations " +
                     "(${hex.cellCount} cell, ${hex.gnssCount} GNSS, ${hex.wifiCount} Wi-Fi)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Tap elsewhere to dismiss",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.tertiary,
             )
         }
     }
@@ -469,13 +652,5 @@ private fun EmptyMapState() {
                 textAlign = TextAlign.Center,
             )
         }
-    }
-}
-
-private fun formatTime(ts: Long): String {
-    return try {
-        SimpleDateFormat("MMM dd HH:mm", Locale.getDefault()).format(Date(ts))
-    } catch (e: Exception) {
-        "recent"
     }
 }

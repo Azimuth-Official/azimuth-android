@@ -70,9 +70,9 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     }
 
     val items = listOf(
+        BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
         BottomNavItem("Observations", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
-        BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
 
@@ -81,7 +81,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     } != true
 
     val startDest = when {
-        isRegistered == true && hasCompletedOnboarding == true -> DashboardRoute
+        isRegistered == true && hasCompletedOnboarding == true -> MapRoute
         isRegistered == true -> PermissionOnboardingRoute
         else -> OnboardingRoute
     }
@@ -100,7 +100,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
                             } == true,
                             onClick = {
                                 navController.navigate(item.route) {
-                                    popUpTo(DashboardRoute) { saveState = true }
+                                    popUpTo(MapRoute) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -128,7 +128,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
             composable<PermissionOnboardingRoute> {
                 PermissionOnboardingScreen(
                     onPermissionsGranted = {
-                        navController.navigate(DashboardRoute) {
+                        navController.navigate(MapRoute) {
                             popUpTo(PermissionOnboardingRoute) { inclusive = true }
                         }
                     },

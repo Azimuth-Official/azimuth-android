@@ -12,3 +12,5 @@ app/build/
 *.aab
 *.ap_
 *.dex
+*.bak
+*.bak.*
