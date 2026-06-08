@@ -2,32 +2,37 @@ package day.azimuth.observer.service
 
 import android.content.Context
 import android.util.Log
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
 import day.azimuth.observer.data.local.HexIndexer
 import day.azimuth.observer.data.local.ObservationDao
 
-@HiltWorker
-class CoverageBackfillWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted params: WorkerParameters,
-    private val observationDao: ObservationDao,
-    private val hexCoverageDao: HexCoverageDao,
-    private val hexIndexer: HexIndexer,
+class CoverageBackfillWorker(
+    context: Context,
+    params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
 
     private val random = java.util.Random()
 
     override suspend fun doWork(): Result {
         return try {
-            backfillCoverage()
+            val entryPoint = EntryPointAccessors.fromApplication(
+                applicationContext,
+                CoverageBackfillEntryPoint::class.java
+            )
+            val observationDao = entryPoint.observationDao()
+            val hexCoverageDao = entryPoint.hexCoverageDao()
+            val hexIndexer = entryPoint.hexIndexer()
+
+            backfillCoverage(observationDao, hexCoverageDao, hexIndexer)
             Log.i(TAG, "Coverage backfill completed")
             Result.success()
         } catch (e: Exception) {
@@ -36,7 +41,11 @@ class CoverageBackfillWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun backfillCoverage() {
+    private suspend fun backfillCoverage(
+        observationDao: ObservationDao,
+        hexCoverageDao: HexCoverageDao,
+        hexIndexer: HexIndexer
+    ) {
         val chunkSize = 100
         var offset = 0
         val aggregates = mutableMapOf<String, Aggregate>()
@@ -114,9 +123,17 @@ class CoverageBackfillWorker @AssistedInject constructor(
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                androidx.work.ExistingWorkPolicy.KEEP,
+                androidx.work.ExistingWorkPolicy.REPLACE,
                 request
             )
         }
     }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface CoverageBackfillEntryPoint {
+    fun observationDao(): ObservationDao
+    fun hexCoverageDao(): HexCoverageDao
+    fun hexIndexer(): HexIndexer
 }

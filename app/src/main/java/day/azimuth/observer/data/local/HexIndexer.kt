@@ -20,7 +20,7 @@ interface HexIndexer {
 class HexIndexerImpl : HexIndexer {
     private val h3: H3Core? = try {
         H3Core.newInstance()
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         null // will use fallback
     }
 
