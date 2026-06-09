@@ -73,7 +73,7 @@ class ObservationService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Observation Service",
-            NotificationManager.IMPORTANCE_LOW,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Shows when Azimuth is collecting radio observations"
         }

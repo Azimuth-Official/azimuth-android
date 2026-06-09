@@ -1,5 +1,6 @@
 package day.azimuth.observer.data.local
 
+import androidx.room.Transaction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,6 +17,7 @@ class ObservationRepository @Inject constructor(
 ) {
     private val random = java.util.Random()
 
+    @Transaction
     suspend fun recordObservation(observation: Observation) {
         // Always insert the raw observation (source of truth)
         observationDao.insert(observation)

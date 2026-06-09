@@ -76,7 +76,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
         BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
         BottomNavItem("Leaderboard", { Icon(Icons.Default.EmojiEvents, contentDescription = "Leaderboard") }, LeaderboardRoute),
-        BottomNavItem("Observations", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
+        BottomNavItem("Observe", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
 

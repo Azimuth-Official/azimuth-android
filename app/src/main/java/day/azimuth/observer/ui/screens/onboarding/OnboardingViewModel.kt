@@ -161,7 +161,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (e: NoCredentialException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "No Google account found on this device",
+                    error = "Google Sign-In is not available. Please register with email.",
                 )
             } catch (e: GetCredentialException) {
                 _uiState.value = _uiState.value.copy(
