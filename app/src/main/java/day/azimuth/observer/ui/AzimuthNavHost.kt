@@ -77,7 +77,7 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
     val items = listOf(
         BottomNavItem("Map", { Icon(Icons.Default.Place, contentDescription = "Map") }, MapRoute),
         BottomNavItem("Dashboard", { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }, DashboardRoute),
-        BottomNavItem("Leaderboard", { Icon(Icons.Default.EmojiEvents, contentDescription = "Leaderboard") }, LeaderboardRoute),
+        BottomNavItem("Ranks", { Icon(Icons.Default.EmojiEvents, contentDescription = "Ranks") }, LeaderboardRoute),
         BottomNavItem("Observe", { Icon(Icons.Default.List, contentDescription = "Observations") }, ObservationsRoute),
         BottomNavItem("Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") }, SettingsRoute),
     )
