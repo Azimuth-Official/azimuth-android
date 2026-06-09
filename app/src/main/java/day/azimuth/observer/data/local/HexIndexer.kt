@@ -1,5 +1,6 @@
 package day.azimuth.observer.data.local
 
+import android.util.Log
 import com.uber.h3core.H3Core
 
 /**
@@ -19,9 +20,14 @@ interface HexIndexer {
 
 class HexIndexerImpl : HexIndexer {
     private val h3: H3Core? = try {
-        H3Core.newInstance()
+        // On Android, native .so is in APK lib/ dir — use System.loadLibrary path
+        System.loadLibrary("h3-java")
+        H3Core.newSystemInstance().also {
+            Log.i("HexIndexer", "H3Core initialized via system library")
+        }
     } catch (e: Throwable) {
-        null // will use fallback
+        Log.w("HexIndexer", "H3Core init failed, using grid fallback", e)
+        null
     }
 
     override fun latLonToHex(lat: Double, lon: Double, resolution: Int): String? {

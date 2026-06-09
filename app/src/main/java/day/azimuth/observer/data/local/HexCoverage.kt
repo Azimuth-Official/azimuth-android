@@ -26,7 +26,8 @@ data class HexCoverage(
     val latestAccuracy: Float? = null,
     val gridX: Int? = null,
     val gridY: Int? = null,
-    val tier: String = "OWN"
+    val tier: String = "OWN",
+    val boundary: String? = null  // JSON [[lat,lng],...] from server h3-js cellToBoundary
 ) {
     fun getTier(): CoverageTier = try {
         CoverageTier.valueOf(tier)

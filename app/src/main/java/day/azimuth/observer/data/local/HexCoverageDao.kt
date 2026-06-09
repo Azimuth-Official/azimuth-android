@@ -29,4 +29,10 @@ interface HexCoverageDao {
 
     @Query("UPDATE hex_coverage SET pendingCount = CASE WHEN pendingCount >= :count THEN pendingCount - :count ELSE 0 END WHERE h3Index = :h3Index")
     suspend fun decrementPendingCount(h3Index: String, count: Int)
+
+    @Query("DELETE FROM hex_coverage")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM hex_coverage WHERE h3Index = :h3")
+    suspend fun deleteByH3(h3: String)
 }

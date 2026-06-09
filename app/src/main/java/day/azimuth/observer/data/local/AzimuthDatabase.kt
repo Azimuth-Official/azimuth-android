@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Observation::class, HexCoverage::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AzimuthDatabase : RoomDatabase() {
@@ -73,6 +73,13 @@ abstract class AzimuthDatabase : RoomDatabase() {
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE observations ADD COLUMN rtk_enabled INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // MIGRATION_7_8 adds server-computed hex boundary vertices.
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE hex_coverage ADD COLUMN boundary TEXT")
             }
         }
     }

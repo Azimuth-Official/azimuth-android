@@ -4,10 +4,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
+import com.uber.h3core.H3Core
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import day.azimuth.observer.data.local.CoverageTier
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +27,8 @@ data class MapUiState(
     val totalHexes: Int = 0,
     val hexesToday: Int = 0,
     val coveredHexes: List<HexCoverage> = emptyList(),
+    val displayHexes: List<HexCoverage> = emptyList(),
+    val displayResolution: Int = 8,
     val cellTotal: Int = 0,
     val gnssTotal: Int = 0,
     val wifiTotal: Int = 0,
@@ -39,6 +45,10 @@ class MapViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
+
+    private val h3Core: H3Core? = try { H3Core.newInstance() } catch (_: Throwable) { null }
+    private var currentZoom: Double = 14.0
+    private var zoomDebounceJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -58,10 +68,92 @@ class MapViewModel @Inject constructor(
                     wifiTotal = list.sumOf { it.wifiCount },
                     pendingApprox = list.sumOf { it.pendingCount }
                 )
+                recomputeDisplayHexes()
             }
         }
 
         observeBackfillWork()
+    }
+
+    fun onZoomChanged(zoom: Double) {
+        currentZoom = zoom
+        val newRes = zoomToH3Resolution(zoom)
+        if (newRes != _uiState.value.displayResolution) {
+            zoomDebounceJob?.cancel()
+            zoomDebounceJob = viewModelScope.launch {
+                delay(300)
+                _uiState.value = _uiState.value.copy(displayResolution = newRes)
+                recomputeDisplayHexes()
+            }
+        }
+    }
+
+    private fun recomputeDisplayHexes() {
+        val raw = _uiState.value.coveredHexes
+        val targetRes = _uiState.value.displayResolution
+
+        if (targetRes >= 8 || h3Core == null) {
+            _uiState.value = _uiState.value.copy(displayHexes = raw)
+            return
+        }
+
+        // Aggregate real H3 hexes to parent resolution
+        val parentMap = mutableMapOf<String, AggregatedHex>()
+        val gridHexes = mutableListOf<HexCoverage>()
+
+        for (hex in raw) {
+            if (hex.getTier() == CoverageTier.UNMAPPED) continue
+
+            if (hex.h3Index.startsWith("grid")) {
+                gridHexes.add(hex)
+                continue
+            }
+
+            try {
+                val h3Long = h3Core.stringToH3(hex.h3Index)
+                val parentLong = h3Core.cellToParent(h3Long, targetRes)
+                val parent = h3Core.h3ToString(parentLong)
+                val existing = parentMap[parent]
+                if (existing != null) {
+                    existing.observationCount += hex.observationCount
+                    existing.cellCount += hex.cellCount
+                    existing.gnssCount += hex.gnssCount
+                    existing.wifiCount += hex.wifiCount
+                    if (hex.getTier() == CoverageTier.OWN) existing.hasOwn = true
+                } else {
+                    parentMap[parent] = AggregatedHex(
+                        observationCount = hex.observationCount,
+                        cellCount = hex.cellCount,
+                        gnssCount = hex.gnssCount,
+                        wifiCount = hex.wifiCount,
+                        hasOwn = hex.getTier() == CoverageTier.OWN,
+                        lastSeen = hex.lastSeen,
+                        firstSeen = hex.firstSeen
+                    )
+                }
+            } catch (_: Exception) {
+                gridHexes.add(hex)
+            }
+        }
+
+        // Convert aggregated parent hexes to HexCoverage objects
+        val aggregated = parentMap.map { (parentH3, agg) ->
+            HexCoverage(
+                h3Index = parentH3,
+                resolution = targetRes,
+                firstSeen = agg.firstSeen,
+                lastSeen = agg.lastSeen,
+                observationCount = agg.observationCount,
+                cellCount = agg.cellCount,
+                gnssCount = agg.gnssCount,
+                wifiCount = agg.wifiCount,
+                tier = if (agg.hasOwn) "OWN" else "OTHER"
+            )
+        }
+
+        _uiState.value = _uiState.value.copy(
+            displayHexes = aggregated + gridHexes
+        )
     }
 
     private fun observeBackfillWork() {
@@ -97,4 +189,25 @@ class MapViewModel @Inject constructor(
         cal.set(Calendar.MILLISECOND, 0)
         return cal.timeInMillis
     }
+
+    companion object {
+        fun zoomToH3Resolution(zoom: Double): Int = when {
+            zoom >= 15 -> 8
+            zoom >= 13 -> 7
+            zoom >= 11 -> 6
+            zoom >= 9  -> 5
+            zoom >= 7  -> 4
+            else       -> 3
+        }
+    }
 }
+
+private class AggregatedHex(
+    var observationCount: Int,
+    var cellCount: Int,
+    var gnssCount: Int,
+    var wifiCount: Int,
+    var hasOwn: Boolean,
+    val lastSeen: Long,
+    val firstSeen: Long,
+)

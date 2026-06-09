@@ -78,8 +78,26 @@ class CoverageSyncWorker(
         }
 
         try {
-            api.postCoverage(PostCoverageRequest(hexes = uploads))
+            val response = api.postCoverage(PostCoverageRequest(hexes = uploads))
             Log.i(TAG, "Uploaded ${uploads.size} coverage hexes")
+
+            // Update local hexes with server-computed boundaries and normalized H3 IDs
+            response.boundaries?.forEach { (gridId, boundary) ->
+                if (boundary != null) {
+                    val existing = dao.getByH3(gridId) ?: return@forEach
+                    val normalizedId = response.normalized?.get(gridId)
+                    if (normalizedId != null && normalizedId != gridId) {
+                        // Replace grid8 ID with real H3 ID + boundary
+                        dao.deleteByH3(gridId)
+                        dao.upsert(existing.copy(
+                            h3Index = normalizedId,
+                            boundary = boundary.toString()
+                        ))
+                    } else if (existing.boundary == null) {
+                        dao.upsert(existing.copy(boundary = boundary.toString()))
+                    }
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to upload coverage hexes", e)
             throw e
@@ -104,20 +122,29 @@ class CoverageSyncWorker(
                 null
             }
 
-            // Skip if this hex is already our OWN coverage
-            if (existing != null && existing.tier == "OWN") continue
+            val boundaryJson = globalHex.boundary?.toString()
 
-            // Upsert as OTHER tier
+            // If OWN hex exists, only update its boundary (don't change tier or counts)
+            if (existing != null && existing.tier == "OWN") {
+                if (boundaryJson != null && existing.boundary == null) {
+                    try { dao.upsert(existing.copy(boundary = boundaryJson)) } catch (_: Exception) {}
+                }
+                continue
+            }
+
+            // Upsert as OTHER tier with server-computed boundary
             val otherHex = existing?.copy(
                 observationCount = globalHex.totalObservations.toInt(),
-                tier = "OTHER"
+                tier = "OTHER",
+                boundary = boundaryJson ?: existing.boundary
             ) ?: day.azimuth.observer.data.local.HexCoverage(
                 h3Index = globalHex.h3Index,
                 resolution = 8,
                 firstSeen = System.currentTimeMillis(),
                 lastSeen = System.currentTimeMillis(),
                 observationCount = globalHex.totalObservations.toInt(),
-                tier = "OTHER"
+                tier = "OTHER",
+                boundary = boundaryJson
             )
 
             try {

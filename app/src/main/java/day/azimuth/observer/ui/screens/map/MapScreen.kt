@@ -55,9 +55,25 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+
+// ─── Boundary parsing ───────────────────────────────────────────────
+
+/** Parse server boundary JSON "[[lat,lng],[lat,lng],...]" → GeoPoint list */
+private fun parseBoundaryJson(json: String): List<GeoPoint> {
+    // Format from h3-js cellToBoundary: [[lat, lng], [lat, lng], ...]
+    // Stored as toString() of List<List<Double>>
+    val cleaned = json.replace("[", "").replace("]", "")
+    val numbers = cleaned.split(",").map { it.trim().toDouble() }
+    return (numbers.indices step 2).map { i ->
+        GeoPoint(numbers[i], numbers[i + 1])
+    }
+}
 
 // ─── Custom location icons ──────────────────────────────────────────
 
@@ -163,8 +179,9 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Layer 1: Interactive map (full bleed)
             OsmdroidMapView(
-                hexes = uiState.coveredHexes,
+                hexes = uiState.displayHexes.ifEmpty { uiState.coveredHexes },
                 onHexTapped = { hex -> viewModel.setTappedHex(hex) },
+                onZoomChanged = { zoom -> viewModel.onZoomChanged(zoom) },
                 mapViewRef = mapViewRef,
                 locationOverlayRef = locationOverlayRef,
                 modifier = Modifier.fillMaxSize()
@@ -296,6 +313,7 @@ private fun MapControls(
 private fun OsmdroidMapView(
     hexes: List<HexCoverage>,
     onHexTapped: (HexCoverage) -> Unit = {},
+    onZoomChanged: (Double) -> Unit = {},
     mapViewRef: androidx.compose.runtime.MutableState<MapView?>,
     locationOverlayRef: androidx.compose.runtime.MutableState<MyLocationNewOverlay?>,
     modifier: Modifier = Modifier
@@ -344,6 +362,14 @@ private fun OsmdroidMapView(
                 overlays.add(locationOverlay)
                 locationOverlayRef.value = locationOverlay
 
+                addMapListener(object : MapListener {
+                    override fun onScroll(event: ScrollEvent?): Boolean = false
+                    override fun onZoom(event: ZoomEvent?): Boolean {
+                        event?.let { onZoomChanged(it.zoomLevel) }
+                        return false
+                    }
+                })
+
                 mapViewRef.value = this
             }
         },
@@ -361,12 +387,24 @@ private fun OsmdroidMapView(
             val allPoints = mutableListOf<GeoPoint>()
             val otherPolygons = mutableListOf<Polygon>()
             val ownPolygons = mutableListOf<Polygon>()
+            var renderedCount = 0
+            val maxRendered = 500
 
             for (hex in hexes) {
+                if (renderedCount >= maxRendered) break
                 val tier = hex.getTier()
                 if (tier == CoverageTier.UNMAPPED) continue
 
                 val vertices: List<GeoPoint> = when {
+                    // Prefer server-computed boundary (real H3 hexagons that interlock)
+                    hex.boundary != null -> {
+                        try {
+                            parseBoundaryJson(hex.boundary)
+                        } catch (_: Exception) {
+                            continue
+                        }
+                    }
+                    // H3Core fallback (if native lib works on this device)
                     !hex.h3Index.startsWith("grid") && h3Core != null -> {
                         try {
                             h3Core.cellToBoundary(hex.h3Index).map { latLng ->
@@ -376,27 +414,23 @@ private fun OsmdroidMapView(
                             continue
                         }
                     }
+                    // Grid fallback — approximate rectangles
                     hex.h3Index.startsWith("grid8:") -> {
                         try {
                             val parts = hex.h3Index.split(":")
                             val latBucket = parts[1].toInt()
                             val lonBucket = parts[2].toInt()
                             val scale = 0.00417
-                            val centerLat = latBucket * scale + scale / 2.0
-                            val centerLon = lonBucket * scale + scale / 2.0
-                            val latRad = Math.toRadians(centerLat)
-                            // Scale radius so hex fits within grid cell at any latitude
-                            // sin(60°) ≈ 0.866; hex must fit: lonRadius * sin(60°) ≤ scale/2
-                            val radius = (scale / 2.0) * Math.cos(latRad) / 0.866
-                            val lonRadius = radius / Math.cos(latRad)
-
-                            (0 until 6).map { i ->
-                                val angle = Math.toRadians(60.0 * i)
-                                GeoPoint(
-                                    centerLat + radius * Math.cos(angle),
-                                    centerLon + lonRadius * Math.sin(angle)
-                                )
-                            }
+                            val south = latBucket * scale
+                            val north = south + scale
+                            val west = lonBucket * scale
+                            val east = west + scale
+                            listOf(
+                                GeoPoint(south, west),
+                                GeoPoint(north, west),
+                                GeoPoint(north, east),
+                                GeoPoint(south, east),
+                            )
                         } catch (_: Exception) {
                             continue
                         }
@@ -406,23 +440,29 @@ private fun OsmdroidMapView(
 
                 allPoints.addAll(vertices)
 
-                val fillColor = when (tier) {
-                    CoverageTier.OWN -> AndroidColor.argb(153, 245, 158, 11)
-                    CoverageTier.OTHER -> AndroidColor.argb(102, 6, 182, 212)
-                    CoverageTier.UNMAPPED -> continue
+                val obsCount = hex.observationCount
+                val fillColor = when {
+                    // OWN hexes get a 25% opacity floor so user always sees own coverage
+                    tier == CoverageTier.OWN && obsCount < 100 ->
+                        AndroidColor.argb(64, 245, 158, 11)
+                    obsCount >= 5000 -> AndroidColor.argb(179, 6, 182, 212)
+                    obsCount >= 1000 -> AndroidColor.argb(128, 6, 182, 212)
+                    obsCount >= 100  -> AndroidColor.argb(102, 245, 158, 11)
+                    else             -> AndroidColor.argb(38, 245, 158, 11)
                 }
 
                 val polygon = Polygon(mapView).apply {
                     points = vertices.toMutableList()
                     fillPaint.color = fillColor
-                    outlinePaint.color = AndroidColor.argb(200, 255, 255, 255)
-                    outlinePaint.strokeWidth = 2f
+                    outlinePaint.color = AndroidColor.argb(153, 245, 158, 11)
+                    outlinePaint.strokeWidth = 1f
                     setOnClickListener { _, _, _ ->
                         onHexTapped(hex)
                         true
                     }
                 }
                 hexByPolygon[polygon] = hex
+                renderedCount++
 
                 if (tier == CoverageTier.OWN) {
                     ownPolygons.add(polygon)

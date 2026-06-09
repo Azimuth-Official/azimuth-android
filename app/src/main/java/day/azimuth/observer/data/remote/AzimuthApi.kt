@@ -161,6 +161,8 @@ data class PostCoverageRequest(
 
 data class PostCoverageResponse(
     val synced: Int,
+    val boundaries: Map<String, List<List<Double>>?>? = null,
+    val normalized: Map<String, String>? = null,
 )
 
 data class MyCoverageHex(
@@ -179,6 +181,7 @@ data class GlobalCoverageHex(
     @SerializedName("h3_index") val h3Index: String,
     @SerializedName("contributor_count") val contributorCount: Int,
     @SerializedName("total_observations") val totalObservations: Long,
+    @SerializedName("boundary") val boundary: List<List<Double>>? = null,
 )
 
 data class GetGlobalCoverageResponse(

@@ -70,6 +70,9 @@ class ObservationService : Service() {
     }
 
     private fun createNotificationChannel() {
+        val nm = getSystemService(NotificationManager::class.java)
+        // Delete legacy channel whose IMPORTANCE_LOW is cached on existing installs
+        nm.deleteNotificationChannel("observation_service")
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Observation Service",
@@ -77,7 +80,7 @@ class ObservationService : Service() {
         ).apply {
             description = "Shows when Azimuth is collecting radio observations"
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        nm.createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification =
@@ -91,7 +94,7 @@ class ObservationService : Service() {
     companion object {
         const val ACTION_START = "day.azimuth.observer.START"
         const val ACTION_STOP = "day.azimuth.observer.STOP"
-        private const val CHANNEL_ID = "observation_service"
+        private const val CHANNEL_ID = "observation_service_v2"
         private const val NOTIFICATION_ID = 1
     }
 }
