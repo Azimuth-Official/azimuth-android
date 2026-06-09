@@ -5,6 +5,11 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Color as AndroidColor
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,11 +30,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -231,13 +239,33 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
             }
 
             // Stats overlay card (bottom)
-            CoverageStatsCard(
-                uiState = uiState,
+            AnimatedVisibility(
+                visible = uiState.statsVisible,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
+            ) {
+                CoverageStatsCard(
+                    uiState = uiState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(8.dp)
+                        .fillMaxWidth()
+                )
+            }
+
+            // Stats toggle FAB (always visible)
+            SmallFloatingActionButton(
+                onClick = { viewModel.toggleStats() },
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(8.dp)
-                    .fillMaxWidth()
-            )
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Icon(
+                    if (uiState.statsVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (uiState.statsVisible) "Hide stats" else "Show stats"
+                )
+            }
         }
     }
 }
@@ -503,6 +531,12 @@ private fun CoverageStatsCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 StatBadge(
+                    label = "Points",
+                    value = uiState.pointsBalance.toString(),
+                    color = Color(0xFFF59E0B),
+                    modifier = Modifier.weight(1f)
+                )
+                StatBadge(
                     label = "Coverage areas",
                     value = uiState.totalHexes.toString(),
                     modifier = Modifier.weight(1f)
@@ -551,7 +585,8 @@ private fun CoverageStatsCard(
 private fun StatBadge(
     label: String,
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     Column(
         modifier = modifier
@@ -565,7 +600,7 @@ private fun StatBadge(
         Text(
             text = value,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
+            color = color,
         )
         Text(
             text = label,

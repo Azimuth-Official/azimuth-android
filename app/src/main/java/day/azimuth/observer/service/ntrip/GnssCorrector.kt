@@ -6,6 +6,11 @@ import android.os.Build
 import android.util.Log
 
 class GnssCorrector(private val context: Context) {
+    /**
+     * null = unknown (not yet tested), true = chipset supports injection, false = not supported
+     */
+    private var chipsetSupported: Boolean? = null
+
     fun isSupported(): Boolean {
         // Requires Android 12+ (API 31)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -22,10 +27,18 @@ class GnssCorrector(private val context: Context) {
         return true
     }
 
+    fun isChipsetSupported(): Boolean? = chipsetSupported
+
     fun injectCorrections(rtcmData: ByteArray) {
         try {
             if (!isSupported()) {
                 Log.d(TAG, "GNSS corrections not supported on this device")
+                return
+            }
+
+            // If we already know chipset doesn't support injection, skip the reflection attempt
+            if (chipsetSupported == false) {
+                Log.d(TAG, "Chipset does not support GNSS correction injection, skipping")
                 return
             }
 
@@ -45,9 +58,21 @@ class GnssCorrector(private val context: Context) {
                         ByteArray::class.java
                     )
                     method.invoke(locationManager, rtcmData)
-                    Log.i(TAG, "Injected ${rtcmData.size} bytes of GNSS corrections")
+                    if (chipsetSupported == null) {
+                        chipsetSupported = true
+                        Log.i(TAG, "Chipset supports GNSS correction injection")
+                    }
+                    Log.d(TAG, "Injected ${rtcmData.size} bytes of GNSS corrections")
                 } catch (e: NoSuchMethodException) {
-                    Log.d(TAG, "injectGnssMeasurementCorrections not available on this build")
+                    if (chipsetSupported == null) {
+                        chipsetSupported = false
+                        Log.w(TAG, "Chipset does not support GNSS correction injection: method not available")
+                    }
+                } catch (e: SecurityException) {
+                    if (chipsetSupported == null) {
+                        chipsetSupported = false
+                        Log.w(TAG, "Chipset does not support GNSS correction injection: permission denied")
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to inject GNSS corrections: ${e.message}")
                 }

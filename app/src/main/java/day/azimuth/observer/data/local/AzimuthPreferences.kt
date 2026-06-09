@@ -37,6 +37,10 @@ class AzimuthPreferences @Inject constructor(
         it[KEY_COLLECTION_ENABLED] ?: true // default: enabled
     }
 
+    val statsVisible: Flow<Boolean> = dataStore.data.map {
+        it[KEY_STATS_VISIBLE] ?: true
+    }
+
     suspend fun saveRegistration(userId: String, apiKey: String, email: String) {
         dataStore.edit {
             it[KEY_USER_ID] = userId
@@ -61,6 +65,10 @@ class AzimuthPreferences @Inject constructor(
         dataStore.edit { it[KEY_COLLECTION_ENABLED] = enabled }
     }
 
+    suspend fun setStatsVisible(visible: Boolean) {
+        dataStore.edit { it[KEY_STATS_VISIBLE] = visible }
+    }
+
     suspend fun clear() {
         dataStore.edit { it.clear() }
     }
@@ -82,5 +90,6 @@ class AzimuthPreferences @Inject constructor(
         private val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         private val KEY_COLLECTION_ENABLED = booleanPreferencesKey("collection_enabled")
         private val KEY_HEX_DATA_VERSION = intPreferencesKey("hex_data_version")
+        private val KEY_STATS_VISIBLE = booleanPreferencesKey("stats_visible")
     }
 }

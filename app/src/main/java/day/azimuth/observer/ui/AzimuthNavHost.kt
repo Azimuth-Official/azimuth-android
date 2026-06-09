@@ -33,6 +33,7 @@ import day.azimuth.observer.MainActivity
 import day.azimuth.observer.ui.screens.dashboard.DashboardScreen
 import day.azimuth.observer.ui.screens.leaderboard.LeaderboardScreen
 import day.azimuth.observer.ui.screens.map.MapScreen
+import day.azimuth.observer.ui.screens.nodes.NodeManagementScreen
 import day.azimuth.observer.ui.screens.observations.ObservationsScreen
 import day.azimuth.observer.ui.screens.onboarding.OnboardingScreen
 import day.azimuth.observer.ui.screens.onboarding.PermissionOnboardingScreen
@@ -48,6 +49,7 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoute
 @Serializable object MapRoute
 @Serializable object RtkSettingsRoute
+@Serializable object NodesRoute
 
 data class BottomNavItem(
     val label: String,
@@ -161,12 +163,23 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
                     onNavigateToRtk = {
                         navController.navigate(RtkSettingsRoute)
                     },
+                    onNavigateToNodes = {
+                        navController.navigate(NodesRoute)
+                    },
                 )
             }
             composable<RtkSettingsRoute> {
                 RtkSettingsScreen(
                     onNavigateBack = {
                         navController.navigateUp()
+                    },
+                )
+            }
+            composable<NodesRoute> {
+                NodeManagementScreen(
+                    viewModel = hiltViewModel(),
+                    onBack = {
+                        navController.popBackStack()
                     },
                 )
             }

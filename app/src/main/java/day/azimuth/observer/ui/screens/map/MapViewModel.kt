@@ -1,15 +1,18 @@
 package day.azimuth.observer.ui.screens.map
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.uber.h3core.H3Core
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import day.azimuth.observer.data.local.AzimuthPreferences
 import day.azimuth.observer.data.local.CoverageTier
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
+import day.azimuth.observer.data.remote.AzimuthApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,13 +37,17 @@ data class MapUiState(
     val wifiTotal: Int = 0,
     val pendingApprox: Int = 0,
     val tappedHex: HexCoverage? = null,
-    val backfillState: BackfillState = BackfillState.IDLE
+    val backfillState: BackfillState = BackfillState.IDLE,
+    val statsVisible: Boolean = true,
+    val pointsBalance: Int = 0,
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val hexCoverageDao: HexCoverageDao,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val prefs: AzimuthPreferences,
+    private val api: AzimuthApi
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -69,6 +76,21 @@ class MapViewModel @Inject constructor(
                     pendingApprox = list.sumOf { it.pendingCount }
                 )
                 recomputeDisplayHexes()
+            }
+        }
+
+        viewModelScope.launch {
+            prefs.statsVisible.collect { visible ->
+                _uiState.value = _uiState.value.copy(statsVisible = visible)
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                val points = api.getMyPoints()
+                _uiState.value = _uiState.value.copy(pointsBalance = points.balance)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch points: ${e.message}")
             }
         }
 
@@ -181,6 +203,12 @@ class MapViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(tappedHex = hex)
     }
 
+    fun toggleStats() {
+        viewModelScope.launch {
+            prefs.setStatsVisible(!_uiState.value.statsVisible)
+        }
+    }
+
     private fun getTodayStartMillis(): Long {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -191,6 +219,8 @@ class MapViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "MapViewModel"
+
         fun zoomToH3Resolution(zoom: Double): Int = when {
             zoom >= 15 -> 8
             zoom >= 13 -> 7

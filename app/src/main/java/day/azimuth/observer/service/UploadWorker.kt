@@ -99,31 +99,32 @@ class UploadWorker @AssistedInject constructor(
                     Log.w(TAG, "Partial accept: ${response.accepted}/$batchSize observations accepted")
                 }
 
+                // Mark all observations as uploaded in BOTH cases
+                // (whether server accepted or filtered them)
+                observationDao.markUploaded(batch.map { it.id })
+
                 if (response.accepted == 0) {
                     // Server filtered all observations (accuracy >50m or deduped).
                     // Mark as uploaded — retrying won't change the outcome.
                     Log.w(TAG, "Server filtered ${batch.size} observations (accuracy/dedupe); marking as uploaded")
-                    observationDao.markUploaded(batch.map { it.id })
                 } else {
-                    // Mark all observations as uploaded (dedup ensures they're already on server)
-                    observationDao.markUploaded(batch.map { it.id })
-
-                    // Reconcile coverage: decrement pending counts for successfully uploaded observations
-                    try {
-                        val countsByHex = mutableMapOf<String, Int>()
-                        for (obs in batch) {
-                            val h3 = hexIndexer.latLonToHex(obs.latitude, obs.longitude) ?: continue
-                            countsByHex[h3] = countsByHex.getOrDefault(h3, 0) + 1
-                        }
-                        for ((h3, count) in countsByHex) {
-                            hexCoverageDao.decrementPendingCount(h3, count)
-                        }
-                    } catch (reconcileEx: Exception) {
-                        Log.w(TAG, "Coverage reconciliation failed: ${reconcileEx.message}")
-                    }
-
                     totalAccepted += response.accepted
                     Log.i(TAG, "Uploaded batch: ${response.accepted} accepted")
+                }
+
+                // ALWAYS reconcile coverage: decrement pending counts for all uploaded observations
+                // This runs whether accepted == 0 or not, ensuring pending count is reset
+                try {
+                    val countsByHex = mutableMapOf<String, Int>()
+                    for (obs in batch) {
+                        val h3 = hexIndexer.latLonToHex(obs.latitude, obs.longitude) ?: continue
+                        countsByHex[h3] = countsByHex.getOrDefault(h3, 0) + 1
+                    }
+                    for ((h3, count) in countsByHex) {
+                        hexCoverageDao.decrementPendingCount(h3, count)
+                    }
+                } catch (reconcileEx: Exception) {
+                    Log.w(TAG, "Coverage reconciliation failed: ${reconcileEx.message}")
                 }
             } catch (e: HttpException) {
                 when (e.code()) {

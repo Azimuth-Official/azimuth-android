@@ -234,6 +234,20 @@ data class LeaderboardResponse(
     @SerializedName("total_participants") val totalParticipants: Int,
 )
 
+// ─── Profile ──────────────────────────────────────────────────────────
+
+data class UserProfileResponse(
+    val id: String,
+    val email: String?,
+    @SerializedName("display_name") val displayName: String?,
+    @SerializedName("referral_code") val referralCode: String?,
+    @SerializedName("created_at") val createdAt: String,
+)
+
+data class UpdateProfileRequest(
+    @SerializedName("display_name") val displayName: String,
+)
+
 // ─── API Interface ───────────────────────────────────────────────────
 
 interface AzimuthApi {
@@ -294,6 +308,12 @@ interface AzimuthApi {
         @Query("period") period: String = "alltime",
         @Query("limit") limit: Int = 50,
     ): LeaderboardResponse
+
+    @GET("api/users/me")
+    suspend fun getMyProfile(): UserProfileResponse
+
+    @PATCH("api/users/me")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): UserProfileResponse
 
     @GET("api/version")
     suspend fun getLatestVersion(): VersionInfo

@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import day.azimuth.observer.data.local.NtripConfig
 import day.azimuth.observer.data.local.NtripConnectionState
 import day.azimuth.observer.data.local.NtripStatus
+import day.azimuth.observer.service.collectors.LocationProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ import javax.inject.Singleton
 class NtripManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val gson: Gson,
+    private val locationProvider: LocationProvider,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private var ntripClient: NtripClient? = null
@@ -70,10 +72,17 @@ class NtripManager @Inject constructor(
                         }
                     }
 
-                    // Send GGA every 60 seconds
+                    // Send GGA every 10 seconds for VRS support
                     val now = System.currentTimeMillis()
-                    if (now - lastGpsSend > 60000) {
-                        // TODO: Get current location from LocationProvider
+                    if (now - lastGpsSend > 10000) {
+                        try {
+                            val location = locationProvider.getLastLocation()
+                            if (location != null) {
+                                client.sendGga(location.latitude, location.longitude, location.altitude)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to send GGA: ${e.message}")
+                        }
                         lastGpsSend = now
                     }
 

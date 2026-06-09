@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import day.azimuth.observer.data.local.Observation
 import day.azimuth.observer.data.local.ObservationRepository
+import day.azimuth.observer.service.ntrip.NtripManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,6 +21,7 @@ class GnssMeasurementCollector @Inject constructor(
     private val observationRepository: ObservationRepository,
     private val locationProvider: LocationProvider,
     private val gson: Gson,
+    private val ntripManager: NtripManager,
 ) {
     private var callback: GnssMeasurementsEvent.Callback? = null
     private var scope: CoroutineScope? = null
@@ -37,6 +39,7 @@ class GnssMeasurementCollector @Inject constructor(
                         extractMeasurement(m)
                     }
                     if (measurements.isNotEmpty()) {
+                        val rtkActive = ntripManager.isRtkActive.value
                         val obs = Observation(
                             signalType = "gnss_raw",
                             timestamp = System.currentTimeMillis(),
@@ -51,6 +54,7 @@ class GnssMeasurementCollector @Inject constructor(
                                     "measurements" to measurements,
                                 ),
                             ),
+                            rtkEnabled = rtkActive,
                         )
                         observationRepository.recordObservation(obs)
                     }
