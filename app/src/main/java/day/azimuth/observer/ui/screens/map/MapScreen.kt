@@ -384,8 +384,10 @@ private fun OsmdroidMapView(
                             val scale = 0.00417
                             val centerLat = latBucket * scale + scale / 2.0
                             val centerLon = lonBucket * scale + scale / 2.0
-                            val radius = scale / 2.0
                             val latRad = Math.toRadians(centerLat)
+                            // Scale radius so hex fits within grid cell at any latitude
+                            // sin(60°) ≈ 0.866; hex must fit: lonRadius * sin(60°) ≤ scale/2
+                            val radius = (scale / 2.0) * Math.cos(latRad) / 0.866
                             val lonRadius = radius / Math.cos(latRad)
 
                             (0 until 6).map { i ->

@@ -41,9 +41,7 @@ class HexIndexerImpl : HexIndexer {
         // Grid size chosen to approximate res 8 (~0.46 km cells)
         val scale = 0.00417
         val latBucket = (lat / scale).toInt()
-        // Apply latitude-dependent cosine correction to longitude bucket to match MapScreen rendering
-        val cosLat = Math.cos(Math.toRadians(lat))
-        val lonBucket = (lon / (scale / cosLat)).toInt()
+        val lonBucket = (lon / scale).toInt()
         return "grid8:$latBucket:$lonBucket"
     }
 }
