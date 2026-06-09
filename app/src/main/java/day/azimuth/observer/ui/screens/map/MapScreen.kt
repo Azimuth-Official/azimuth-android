@@ -414,27 +414,8 @@ private fun OsmdroidMapView(
                             continue
                         }
                     }
-                    // Grid fallback — approximate rectangles
-                    hex.h3Index.startsWith("grid8:") -> {
-                        try {
-                            val parts = hex.h3Index.split(":")
-                            val latBucket = parts[1].toInt()
-                            val lonBucket = parts[2].toInt()
-                            val scale = 0.00417
-                            val south = latBucket * scale
-                            val north = south + scale
-                            val west = lonBucket * scale
-                            val east = west + scale
-                            listOf(
-                                GeoPoint(south, west),
-                                GeoPoint(north, west),
-                                GeoPoint(north, east),
-                                GeoPoint(south, east),
-                            )
-                        } catch (_: Exception) {
-                            continue
-                        }
-                    }
+                    // Grid fallback — skip rendering (CoverageSyncWorker will normalize to real H3)
+                    hex.h3Index.startsWith("grid8:") -> continue
                     else -> continue
                 }
 

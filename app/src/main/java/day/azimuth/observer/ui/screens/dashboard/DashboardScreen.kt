@@ -1,5 +1,9 @@
 package day.azimuth.observer.ui.screens.dashboard
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     DisposableEffect(Unit) {
         viewModel.refreshStatus()
@@ -60,7 +65,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Collection control
+        // Collection status (auto-started, controlled via Settings)
         Card(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -69,26 +74,13 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     text = if (uiState.isCollecting) "Collecting..." else "Idle",
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (uiState.isCollecting) {
-                        OutlinedButton(onClick = viewModel::stopCollecting) {
-                            Text("Stop")
-                        }
-                    } else {
-                        Button(onClick = viewModel::startCollecting) {
-                            Text("Start")
-                        }
-                    }
-                }
-                if (uiState.permissionBlocked) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Permissions required. Go to Settings to grant location, phone state, and notification permissions.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (uiState.isCollecting) "Observations are being collected in the background"
+                           else "Collection is paused — enable in Settings",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
@@ -205,6 +197,52 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        // Referral card
+        uiState.referral?.let { referral ->
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Referral",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Your Code: ${referral.referralCode}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${referral.referralCount} referrals \u2022 ${referral.totalBonusPoints} bonus points",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Referral Code", referral.referralCode))
+                        }) {
+                            Text("Copy Code")
+                        }
+                        OutlinedButton(onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "Join Azimuth Observer and earn bonus points! Use my referral code: ${referral.referralCode}\nhttps://azimuth.day/download")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share referral code"))
+                        }) {
+                            Text("Share")
+                        }
+                    }
                 }
             }
         }

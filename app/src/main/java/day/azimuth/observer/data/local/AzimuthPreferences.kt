@@ -33,6 +33,10 @@ class AzimuthPreferences @Inject constructor(
         it[KEY_KEEP_SCREEN_ON] == true
     }
 
+    val collectionEnabled: Flow<Boolean> = dataStore.data.map {
+        it[KEY_COLLECTION_ENABLED] ?: true // default: enabled
+    }
+
     suspend fun saveRegistration(userId: String, apiKey: String, email: String) {
         dataStore.edit {
             it[KEY_USER_ID] = userId
@@ -51,6 +55,10 @@ class AzimuthPreferences @Inject constructor(
 
     suspend fun setKeepScreenOn(enabled: Boolean) {
         dataStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
+    }
+
+    suspend fun setCollectionEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_COLLECTION_ENABLED] = enabled }
     }
 
     suspend fun clear() {
@@ -72,6 +80,7 @@ class AzimuthPreferences @Inject constructor(
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         private val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        private val KEY_COLLECTION_ENABLED = booleanPreferencesKey("collection_enabled")
         private val KEY_HEX_DATA_VERSION = intPreferencesKey("hex_data_version")
     }
 }

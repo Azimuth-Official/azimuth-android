@@ -146,6 +146,18 @@ fun OnboardingScreen(
                         }
                     },
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = uiState.referralCode,
+                    onValueChange = viewModel::setReferralCode,
+                    label = { Text("Referral Code (optional)") },
+                    placeholder = { Text("Enter a friend's code") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !uiState.isLoading,
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

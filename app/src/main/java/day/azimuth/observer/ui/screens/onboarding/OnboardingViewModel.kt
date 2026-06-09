@@ -28,6 +28,7 @@ data class OnboardingUiState(
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val referralCode: String = "",
     val isLoginMode: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -53,6 +54,10 @@ class OnboardingViewModel @Inject constructor(
 
     fun setConfirmPassword(confirmPassword: String) {
         _uiState.value = _uiState.value.copy(confirmPassword = confirmPassword, error = null)
+    }
+
+    fun setReferralCode(referralCode: String) {
+        _uiState.value = _uiState.value.copy(referralCode = referralCode, error = null)
     }
 
     fun toggleLoginMode() {
@@ -100,6 +105,7 @@ class OnboardingViewModel @Inject constructor(
         val email = _uiState.value.email.trim()
         val password = _uiState.value.password
         val confirmPassword = _uiState.value.confirmPassword
+        val referralCode = _uiState.value.referralCode.trim().ifEmpty { null }
 
         if (!email.matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) {
             _uiState.value = _uiState.value.copy(error = "Invalid email address")
@@ -119,7 +125,7 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val authResponse = api.register(RegisterRequest(email = email, password = password))
+                val authResponse = api.register(RegisterRequest(email = email, password = password, referralCode = referralCode))
                 completeAuthAndRegisterNode(
                     userId = authResponse.userId,
                     apiKey = authResponse.apiKey,

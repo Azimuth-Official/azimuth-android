@@ -21,6 +21,7 @@ data class SettingsUiState(
     val isRegistered: Boolean = false,
     val showLogoutConfirm: Boolean = false,
     val keepScreenOn: Boolean = false,
+    val collectionEnabled: Boolean = true,
 )
 
 @HiltViewModel
@@ -42,6 +43,7 @@ class SettingsViewModel @Inject constructor(
                 nodeId = prefs.nodeId.first(),
                 isRegistered = prefs.isRegistered.first(),
                 keepScreenOn = prefs.keepScreenOn.first(),
+                collectionEnabled = prefs.collectionEnabled.first(),
             )
         }
     }
@@ -50,6 +52,18 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(keepScreenOn = enabled)
         viewModelScope.launch {
             prefs.setKeepScreenOn(enabled)
+        }
+    }
+
+    fun setCollectionEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(collectionEnabled = enabled)
+        viewModelScope.launch {
+            prefs.setCollectionEnabled(enabled)
+            if (enabled) {
+                collectionController.startCollection()
+            } else {
+                collectionController.stopCollection()
+            }
         }
     }
 
@@ -65,6 +79,7 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(showLogoutConfirm = false)
         viewModelScope.launch {
             collectionController.stopCollection()
+            collectionController.cancelAllWork()
             prefs.clear()
             _events.emit(SettingsEvent.LoggedOut)
         }

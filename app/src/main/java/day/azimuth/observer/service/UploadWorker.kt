@@ -58,8 +58,9 @@ class UploadWorker @AssistedInject constructor(
         repeat(MAX_BATCHES) {
             val batch = observationDao.getUploadBatch(BATCH_SIZE)
             if (batch.isEmpty()) {
-                Log.i(TAG, "Upload complete: $totalAccepted accepted")
-                return if (hadFailure) Result.retry() else Result.success()
+                Log.i(TAG, "Upload complete: $totalAccepted accepted, queue empty")
+                // Queue drained — terminate periodic chain so WorkManager stops scheduling
+                return Result.success()
             }
 
             val request = SubmitObservationsRequest(
@@ -98,10 +99,11 @@ class UploadWorker @AssistedInject constructor(
                     Log.w(TAG, "Partial accept: ${response.accepted}/$batchSize observations accepted")
                 }
 
-                // If API returned 0 accepted on success, something is wrong - do not mark as uploaded
                 if (response.accepted == 0) {
-                    Log.e(TAG, "API accepted 0 observations; will not mark batch as uploaded and will retry")
-                    hadFailure = true
+                    // Server filtered all observations (accuracy >50m or deduped).
+                    // Mark as uploaded — retrying won't change the outcome.
+                    Log.w(TAG, "Server filtered ${batch.size} observations (accuracy/dedupe); marking as uploaded")
+                    observationDao.markUploaded(batch.map { it.id })
                 } else {
                     // Mark all observations as uploaded (dedup ensures they're already on server)
                     observationDao.markUploaded(batch.map { it.id })

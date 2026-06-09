@@ -29,6 +29,9 @@
     <!-- Wake lock — keep CPU alive during observation sessions -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Boot completed — restart collection on device reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".AzimuthApp"
         android:allowBackup="true"
@@ -51,6 +54,14 @@
             android:name=".service.ObservationService"
             android:foregroundServiceType="location"
             android:exported="false" />
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

@@ -79,6 +79,16 @@ class CollectionController @Inject constructor(
             action = ObservationService.ACTION_STOP
         }
         context.stopService(intent)
+        // Upload worker stays alive to drain pending observations.
+        // It self-terminates when the queue is empty.
+        // Trigger an immediate one-off upload to start draining now.
+        UploadWorker.enqueueOneOff(context)
+    }
+
+    /**
+     * Cancel all work — only call on logout/unregistration.
+     */
+    fun cancelAllWork() {
         cancelUploadWorker()
     }
 

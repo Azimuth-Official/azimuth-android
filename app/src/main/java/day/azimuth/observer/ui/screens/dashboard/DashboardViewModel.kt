@@ -106,22 +106,6 @@ class DashboardViewModel @Inject constructor(
         )
     }
 
-    fun startCollecting() {
-        if (!collectionController.hasRequiredPermissions()) {
-            _uiState.value = _uiState.value.copy(permissionBlocked = true)
-            Log.w(TAG, "Start requested but permissions missing: ${collectionController.missingPermissions()}")
-            return
-        }
-        val started = collectionController.startCollection()
-        if (started) {
-            _uiState.value = _uiState.value.copy(isCollecting = true, permissionBlocked = false)
-            Log.i(TAG, "Collection started")
-        } else {
-            _uiState.value = _uiState.value.copy(isCollecting = false)
-            Log.e(TAG, "Collection start failed")
-        }
-    }
-
     fun stopCollecting() {
         collectionController.stopCollection()
         _uiState.value = _uiState.value.copy(isCollecting = false)
