@@ -54,7 +54,7 @@ object AppModule {
             AzimuthDatabase::class.java,
             "azimuth_observations.db",
         )
-            .addMigrations(AzimuthDatabase.MIGRATION_2_3, AzimuthDatabase.MIGRATION_3_4, AzimuthDatabase.MIGRATION_4_5, AzimuthDatabase.MIGRATION_5_6)
+            .addMigrations(AzimuthDatabase.MIGRATION_2_3, AzimuthDatabase.MIGRATION_3_4, AzimuthDatabase.MIGRATION_4_5, AzimuthDatabase.MIGRATION_5_6, AzimuthDatabase.MIGRATION_6_7)
             // fallbackToDestructiveMigration removed - real additive migration in use
             .build()
 

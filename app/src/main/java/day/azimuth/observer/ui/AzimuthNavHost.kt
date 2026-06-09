@@ -36,6 +36,7 @@ import day.azimuth.observer.ui.screens.map.MapScreen
 import day.azimuth.observer.ui.screens.observations.ObservationsScreen
 import day.azimuth.observer.ui.screens.onboarding.OnboardingScreen
 import day.azimuth.observer.ui.screens.onboarding.PermissionOnboardingScreen
+import day.azimuth.observer.ui.screens.settings.RtkSettingsScreen
 import day.azimuth.observer.ui.screens.settings.SettingsScreen
 import kotlinx.serialization.Serializable
 
@@ -46,6 +47,7 @@ import kotlinx.serialization.Serializable
 @Serializable object ObservationsRoute
 @Serializable object SettingsRoute
 @Serializable object MapRoute
+@Serializable object RtkSettingsRoute
 
 data class BottomNavItem(
     val label: String,
@@ -155,6 +157,16 @@ fun AzimuthNavHost(viewModel: AzimuthNavViewModel = hiltViewModel()) {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         }
                         context.startActivity(intent)
+                    },
+                    onNavigateToRtk = {
+                        navController.navigate(RtkSettingsRoute)
+                    },
+                )
+            }
+            composable<RtkSettingsRoute> {
+                RtkSettingsScreen(
+                    onNavigateBack = {
+                        navController.navigateUp()
                     },
                 )
             }

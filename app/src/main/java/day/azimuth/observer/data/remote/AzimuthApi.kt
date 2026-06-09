@@ -103,6 +103,7 @@ data class ObservationPayload(
     @SerializedName("android_api_level") val androidApiLevel: Int? = null,
     @SerializedName("validation_status") val validationStatus: String? = "raw",
     @SerializedName("client_dedupe_key") val clientDedupeKey: String? = null,
+    @SerializedName("rtk_enabled") val rtkEnabled: Boolean = false,
 )
 
 data class SubmitObservationsRequest(
@@ -289,4 +290,7 @@ interface AzimuthApi {
         @Query("period") period: String = "alltime",
         @Query("limit") limit: Int = 50,
     ): LeaderboardResponse
+
+    @GET("api/version")
+    suspend fun getLatestVersion(): VersionInfo
 }

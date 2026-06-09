@@ -84,6 +84,7 @@ class UploadWorker @AssistedInject constructor(
                         rawData = mapOf(
                             "payload" to obs.payload,
                         ),
+                        rtkEnabled = obs.rtkEnabled,
                     )
                 },
             )

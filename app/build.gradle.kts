@@ -111,4 +111,7 @@ dependencies {
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)
     implementation(libs.googleid)
+
+    // Encrypted SharedPreferences for RTK config
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

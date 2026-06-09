@@ -16,4 +16,5 @@ data class Observation(
     @ColumnInfo(name = "timestamp_ns") val timestampNs: Long? = null,
     val payload: String,
     val uploaded: Boolean = false,
+    @ColumnInfo(name = "rtk_enabled") val rtkEnabled: Boolean = false,
 )

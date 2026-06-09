@@ -45,6 +45,7 @@ import day.azimuth.observer.BuildConfig
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit = {},
+    onNavigateToRtk: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -145,6 +146,25 @@ fun SettingsScreen(
                         checked = uiState.keepScreenOn,
                         onCheckedChange = viewModel::setKeepScreenOn,
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // RTK Provider card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "RTK Provider (Experimental)",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onNavigateToRtk,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Configure RTK")
                 }
             }
         }
