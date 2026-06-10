@@ -13,6 +13,7 @@ import day.azimuth.observer.data.local.CoverageTier
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
 import day.azimuth.observer.data.remote.AzimuthApi
+import day.azimuth.observer.service.CollectionController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,16 +86,10 @@ class MapViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            try {
-                val points = api.getMyPoints()
-                _uiState.value = _uiState.value.copy(pointsBalance = points.balance)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to fetch points: ${e.message}")
-            }
-        }
+        refreshPoints()
 
         observeBackfillWork()
+        observeUploadWork()
     }
 
     fun onZoomChanged(zoom: Double) {
@@ -196,6 +191,36 @@ class MapViewModel @Inject constructor(
             } catch (_: Exception) {
                 _uiState.value = _uiState.value.copy(backfillState = BackfillState.IDLE)
             }
+        }
+    }
+
+    private fun refreshPoints() {
+        viewModelScope.launch {
+            try {
+                val points = api.getMyPoints()
+                _uiState.value = _uiState.value.copy(pointsBalance = points.balance)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch points: ${e.message}")
+            }
+        }
+    }
+
+    private fun observeUploadWork() {
+        viewModelScope.launch {
+            try {
+                val workManager = WorkManager.getInstance(context)
+                var wasRunning = false
+                workManager.getWorkInfosForUniqueWorkFlow(CollectionController.UPLOAD_WORK_NAME)
+                    .collect { workInfoList ->
+                        val isRunning = workInfoList.any {
+                            it.state == androidx.work.WorkInfo.State.RUNNING
+                        }
+                        if (wasRunning && !isRunning) {
+                            refreshPoints()
+                        }
+                        wasRunning = isRunning
+                    }
+            } catch (_: Exception) { }
         }
     }
 

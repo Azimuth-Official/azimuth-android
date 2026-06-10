@@ -221,7 +221,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${referral.referralCount} referrals \u2022 ${referral.totalBonusPoints} bonus points",
+                        text = "${referral.referralCount} referrals \u2022 ${referral.totalEarnings} earnings",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
