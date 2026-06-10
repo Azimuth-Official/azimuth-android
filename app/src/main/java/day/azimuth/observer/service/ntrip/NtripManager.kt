@@ -71,8 +71,12 @@ class NtripManager @Inject constructor(
                             corrector.injectCorrections(rtcmData)
                             if (!rtcmReceived) {
                                 rtcmReceived = true
-                                _isRtkActive.value = true
-                                Log.i(TAG, "RTK active: first RTCM data received and injected")
+                                if (corrector.isChipsetSupported() == true) {
+                                    _isRtkActive.value = true
+                                    Log.i(TAG, "RTK active: RTCM data received, corrections applied")
+                                } else {
+                                    Log.i(TAG, "RTCM data flowing but chipset does not support correction injection")
+                                }
                             }
                         }
                     }
