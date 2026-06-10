@@ -46,6 +46,7 @@ class NtripClient {
                 "Host: ${config.casterUrl}\r\n" +
                 "Authorization: Basic $auth\r\n" +
                 "Ntrip-Version: Ntrip/2.0\r\n" +
+                "User-Agent: NTRIP AzimuthClient/1.0\r\n" +
                 "Connection: close\r\n" +
                 "\r\n"
             )
