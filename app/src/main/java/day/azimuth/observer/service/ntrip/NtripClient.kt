@@ -57,12 +57,8 @@ class NtripClient {
                 throw Exception("No response from caster")
             }
 
-            val statusCode = when {
-                responseLine.contains("200") -> 200
-                responseLine.contains("401") -> 401
-                responseLine.contains("404") -> 404
-                else -> 500
-            }
+            val statusCode = Regex("\\b(\\d{3})\\b").find(responseLine)
+                ?.groupValues?.get(1)?.toIntOrNull() ?: 0
 
             // Read response headers
             var header = inputReader!!.readLine()
@@ -70,39 +66,28 @@ class NtripClient {
                 header = inputReader!!.readLine()
             }
 
-            when (statusCode) {
-                200 -> {
-                    _status.value = _status.value.copy(
-                        state = NtripConnectionState.STREAMING,
-                        bytesReceived = 0,
-                        messagesDecoded = 0
-                    )
-                    Log.i(TAG, "Connected to NTRIP caster: ${config.providerName}")
+            if (statusCode == 200) {
+                _status.value = _status.value.copy(
+                    state = NtripConnectionState.STREAMING,
+                    bytesReceived = 0,
+                    messagesDecoded = 0
+                )
+                Log.i(TAG, "Connected to NTRIP caster: ${config.providerName}")
+            } else {
+                val errorMsg = when (statusCode) {
+                    401 -> "Unauthorized (401): check username/password"
+                    403 -> "Forbidden (403): access denied — check credentials or caster policy"
+                    404 -> "Mountpoint not found (404): '${config.mountpoint}' does not exist"
+                    409 -> "Conflict (409): mountpoint '${config.mountpoint}' already in use"
+                    503 -> "Service unavailable (503): caster overloaded or in maintenance"
+                    else -> "NTRIP error: HTTP $statusCode"
                 }
-                401 -> {
-                    _status.value = _status.value.copy(
-                        state = NtripConnectionState.ERROR,
-                        errorMessage = "Authentication failed (401)"
-                    )
-                    disconnect()
-                    throw Exception("Bad authentication")
-                }
-                404 -> {
-                    _status.value = _status.value.copy(
-                        state = NtripConnectionState.ERROR,
-                        errorMessage = "Mountpoint not found (404)"
-                    )
-                    disconnect()
-                    throw Exception("Mountpoint not found")
-                }
-                else -> {
-                    _status.value = _status.value.copy(
-                        state = NtripConnectionState.ERROR,
-                        errorMessage = "Server error ($statusCode)"
-                    )
-                    disconnect()
-                    throw Exception("Server error: $statusCode")
-                }
+                _status.value = _status.value.copy(
+                    state = NtripConnectionState.ERROR,
+                    errorMessage = errorMsg
+                )
+                disconnect()
+                throw Exception(errorMsg)
             }
         } catch (e: Exception) {
             _status.value = _status.value.copy(
@@ -149,14 +134,14 @@ class NtripClient {
             val lonDeg = lonAbs.toInt()
             val lonMin = (lonAbs - lonDeg) * 60
 
-            val ggaSentence = String.format(
-                "\$GPGGA,%02d%07.4f,%s,%03d%07.4f,%s,1,04,1.0,%.1f,M,0.0,M,,*00",
+            val ggaBody = String.format(
+                "GPGGA,%02d%07.4f,%s,%03d%07.4f,%s,1,04,1.0,%.1f,M,0.0,M,,",
                 latDeg, latMin, latDir,
                 lonDeg, lonMin, lonDir,
                 altitude
             )
+            val ggaSentence = "\$${ggaBody}*${nmeaChecksum(ggaBody)}"
 
-            // Simple checksum (not complete NMEA checksum, but acceptable for RTK providers)
             outputWriter?.write("$ggaSentence\r\n")
             outputWriter?.flush()
             Log.d(TAG, "Sent GGA sentence")
@@ -195,6 +180,14 @@ class NtripClient {
     }
 
     fun isConnected(): Boolean = socket != null && socket!!.isConnected
+
+    private fun nmeaChecksum(body: String): String {
+        var cs = 0
+        for (ch in body) {
+            cs = cs xor ch.code
+        }
+        return "%02X".format(cs)
+    }
 
     companion object {
         private const val TAG = "NtripClient"

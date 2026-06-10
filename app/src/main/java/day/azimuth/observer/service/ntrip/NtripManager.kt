@@ -51,12 +51,12 @@ class NtripManager @Inject constructor(
                 val client = NtripClient()
                 client.connect(config)
                 ntripClient = client
-                _isRtkActive.value = true
                 saveConfig(config)
 
                 // Collect status updates
                 var messagesProcessed = 0
                 var lastGpsSend = System.currentTimeMillis()
+                var rtcmReceived = false
 
                 while (client.isConnected()) {
                     val rtcmData = client.readRtcmData()
@@ -69,6 +69,11 @@ class NtripManager @Inject constructor(
                                 messagesDecoded = messagesProcessed
                             )
                             corrector.injectCorrections(rtcmData)
+                            if (!rtcmReceived) {
+                                rtcmReceived = true
+                                _isRtkActive.value = true
+                                Log.i(TAG, "RTK active: first RTCM data received and injected")
+                            }
                         }
                     }
 
