@@ -189,6 +189,19 @@ data class GetGlobalCoverageResponse(
     val hexes: List<GlobalCoverageHex>,
 )
 
+// ─── RTK Providers ───────────────────────────────────────────────────
+
+data class RegisterRtkProviderRequest(
+    @SerializedName("provider_name") val providerName: String,
+)
+
+data class RtkProviderInfo(
+    val id: String,
+    @SerializedName("provider_name") val providerName: String,
+    @SerializedName("is_active") val isActive: Boolean,
+    @SerializedName("created_at") val createdAt: String,
+)
+
 // ─── Points ──────────────────────────────────────────────────────────
 
 data class PointEntry(
@@ -208,15 +221,15 @@ data class PointsResponse(
 
 data class ReferralEntry(
     @SerializedName("referee_id") val refereeId: String,
-    @SerializedName("created_at") val createdAt: String,
-    @SerializedName("bonus_awarded") val bonusAwarded: Boolean,
+    @SerializedName("earnings_from_referee") val earningsFromReferee: Int = 0,
+    @SerializedName("joined_at") val joinedAt: String = "",
 )
 
 data class ReferralResponse(
     @SerializedName("referral_code") val referralCode: String,
     @SerializedName("referral_count") val referralCount: Int,
-    @SerializedName("total_bonus_points") val totalBonusPoints: Int,
-    val referrals: List<ReferralEntry>,
+    @SerializedName("total_earnings") val totalEarnings: Int = 0,
+    val referrals: List<ReferralEntry> = emptyList(),
 )
 
 // ─── Leaderboard ─────────────────────────────────────────────────────
@@ -296,6 +309,9 @@ interface AzimuthApi {
 
     @GET("api/coverage")
     suspend fun getGlobalCoverage(): GetGlobalCoverageResponse
+
+    @POST("api/rtk-providers")
+    suspend fun registerRtkProvider(@Body request: RegisterRtkProviderRequest): RtkProviderInfo
 
     @GET("api/points/mine")
     suspend fun getMyPoints(@Query("limit") limit: Int = 50): PointsResponse

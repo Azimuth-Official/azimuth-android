@@ -1,10 +1,13 @@
 package day.azimuth.observer.ui.screens.settings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import day.azimuth.observer.data.local.NtripConfig
 import day.azimuth.observer.data.local.NtripStatus
+import day.azimuth.observer.data.remote.AzimuthApi
+import day.azimuth.observer.data.remote.RegisterRtkProviderRequest
 import day.azimuth.observer.service.ntrip.NtripManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +28,7 @@ data class RtkSettingsUiState(
 @HiltViewModel
 class RtkSettingsViewModel @Inject constructor(
     private val ntripManager: NtripManager,
+    private val api: AzimuthApi,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RtkSettingsUiState())
@@ -89,6 +93,14 @@ class RtkSettingsViewModel @Inject constructor(
                 password = password,
             )
             ntripManager.saveConfig(config)
+
+            // Register RTK provider with server for bonus points
+            try {
+                api.registerRtkProvider(RegisterRtkProviderRequest("other"))
+            } catch (e: Exception) {
+                Log.w("RtkSettingsVM", "Failed to register RTK provider: ${e.message}")
+            }
+
             ntripManager.start(config)
             _uiState.value = _uiState.value.copy(isEnabled = true)
         }
