@@ -34,7 +34,7 @@ class NtripManager @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
     private var ntripClient: NtripClient? = null
     private val parser = Rtcm3Parser()
-    private val corrector = GnssCorrector(context)
+    private val engine = CorrectionEngine(listOf(Tier1Injector(GnssCorrector(context))))
     private val encryptedPrefs = createEncryptedPrefs()
 
     private val _isRtkActive = MutableStateFlow(false)
@@ -48,6 +48,7 @@ class NtripManager @Inject constructor(
     fun start(config: NtripConfig) {
         scope.launch {
             try {
+                engine.start()
                 val client = NtripClient()
                 client.connect(config)
                 ntripClient = client
@@ -68,10 +69,10 @@ class NtripManager @Inject constructor(
                             _status.value = _status.value.copy(
                                 messagesDecoded = messagesProcessed
                             )
-                            corrector.injectCorrections(rtcmData)
+                            engine.onRtcmData(rtcmData)
                             if (!rtcmReceived) {
                                 rtcmReceived = true
-                                if (corrector.isChipsetSupported() == true) {
+                                if (engine.isAnyTierApplyingCorrections()) {
                                     _isRtkActive.value = true
                                     Log.i(TAG, "RTK active: RTCM data received, corrections applied")
                                 } else {
@@ -118,6 +119,7 @@ class NtripManager @Inject constructor(
         gpsTaskJob?.cancel()
         ntripClient?.disconnect()
         ntripClient = null
+        engine.stop()
         _isRtkActive.value = false
         _status.value = NtripStatus()
     }
