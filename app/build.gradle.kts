@@ -114,5 +114,9 @@ dependencies {
 
     // Encrypted SharedPreferences for RTK config
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Test
+    testImplementation(kotlin("test"))
+    testImplementation("junit:junit:4.13.2")
 }
 
