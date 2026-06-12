@@ -53,6 +53,7 @@ class NtripManager @Inject constructor(
                 client.connect(config)
                 ntripClient = client
                 saveConfig(config)
+                _status.value = _status.value.copy(state = NtripConnectionState.CONNECTED)
 
                 // Collect status updates
                 var messagesProcessed = 0
