@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Observation::class, HexCoverage::class],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AzimuthDatabase : RoomDatabase() {
@@ -80,6 +80,13 @@ abstract class AzimuthDatabase : RoomDatabase() {
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE hex_coverage ADD COLUMN boundary TEXT")
+            }
+        }
+
+        // MIGRATION_8_9 adds fullBiasNanos for absolute pseudorange reconstruction.
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE observations ADD COLUMN full_bias_nanos INTEGER")
             }
         }
     }

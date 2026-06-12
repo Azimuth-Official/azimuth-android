@@ -76,6 +76,7 @@ class UploadWorker @AssistedInject constructor(
                         accuracy = obs.accuracy,
                         frequencyHz = obs.frequencyHz,
                         timestampNs = obs.timestampNs,
+                        fullBiasNanos = obs.fullBiasNanos,
                         clientDedupeKey = obs.id.toString(),
                         appVersion = appVersion,
                         buildNumber = buildNumber,

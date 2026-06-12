@@ -46,6 +46,7 @@ class GnssMeasurementCollector @Inject constructor(
                             latitude = location.latitude,
                             longitude = location.longitude,
                             accuracy = location.accuracy,
+                            fullBiasNanos = if (event.clock.hasFullBiasNanos()) event.clock.fullBiasNanos else null,
                             timestampNs = event.clock.timeNanos,
                             payload = gson.toJson(
                                 mapOf(
@@ -57,6 +58,10 @@ class GnssMeasurementCollector @Inject constructor(
                             rtkEnabled = rtkActive,
                         )
                         observationRepository.recordObservation(obs)
+                        // TODO: Remove after fullBiasNanos QA verification
+                        if (obs.fullBiasNanos != null) {
+                            android.util.Log.i("GnssClock", "fullBiasNanos=${obs.fullBiasNanos}")
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ data class Observation(
     @ColumnInfo(name = "frequency_hz") val frequencyHz: Long? = null,
     @ColumnInfo(name = "timestamp_ns") val timestampNs: Long? = null,
     val payload: String,
+    @ColumnInfo(name = "full_bias_nanos") val fullBiasNanos: Long? = null,
     val uploaded: Boolean = false,
     @ColumnInfo(name = "rtk_enabled") val rtkEnabled: Boolean = false,
 )

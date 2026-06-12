@@ -94,6 +94,7 @@ data class ObservationPayload(
     val altitude: Double? = null,
     @SerializedName("frequency_hz") val frequencyHz: Long? = null,
     @SerializedName("timestamp_ns") val timestampNs: Long? = null,
+    @SerializedName("full_bias_nanos") val fullBiasNanos: Long? = null,
     @SerializedName("signal_strength_dbm") val signalStrengthDbm: Double? = null,
     @SerializedName("snr_db") val snrDb: Double? = null,
     @SerializedName("source_id") val sourceId: String? = null,
