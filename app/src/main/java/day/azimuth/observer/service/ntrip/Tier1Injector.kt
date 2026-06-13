@@ -35,6 +35,17 @@ class Tier1Injector(private val corrector: GnssCorrector) : CorrectionTier {
 
     override fun reportedAccuracyMeters(): Float? = null
 
+    // Explicit no-ops — prevent AbstractMethodError from Kotlin incremental
+    // compilation when CorrectionTier interface gains default methods.
+    override fun onEphemerisData(data: ByteArray) {}
+    override fun processRoverEpoch(
+        timeNanos: Long, fullBiasNanos: Long, biasNanos: Double,
+        svids: IntArray, constellationTypes: IntArray, states: IntArray,
+        receivedSvTimeNanos: LongArray, timeOffsetNanos: DoubleArray,
+        cn0DbHz: DoubleArray, carrierFreqHz: DoubleArray,
+        pseudorangeRateMps: DoubleArray, adrMeters: DoubleArray, adrStates: IntArray,
+    ) {}
+
     companion object {
         private const val TAG = "Tier1Injector"
     }

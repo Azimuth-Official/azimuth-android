@@ -20,6 +20,36 @@ class CorrectionEngine(private val tiers: List<CorrectionTier>) {
         tiers.forEach { it.onRtcmData(data) }
     }
 
+    fun onEphemerisData(data: ByteArray) {
+        // Fan-out ephemeris bytes — Tier1 ignores via default no-op.
+        tiers.forEach { it.onEphemerisData(data) }
+    }
+
+    fun processRoverEpoch(
+        timeNanos: Long,
+        fullBiasNanos: Long,
+        biasNanos: Double,
+        svids: IntArray,
+        constellationTypes: IntArray,
+        states: IntArray,
+        receivedSvTimeNanos: LongArray,
+        timeOffsetNanos: DoubleArray,
+        cn0DbHz: DoubleArray,
+        carrierFreqHz: DoubleArray,
+        pseudorangeRateMps: DoubleArray,
+        adrMeters: DoubleArray,
+        adrStates: IntArray,
+    ) {
+        tiers.forEach {
+            it.processRoverEpoch(
+                timeNanos, fullBiasNanos, biasNanos,
+                svids, constellationTypes, states,
+                receivedSvTimeNanos, timeOffsetNanos, cn0DbHz,
+                carrierFreqHz, pseudorangeRateMps, adrMeters, adrStates,
+            )
+        }
+    }
+
     fun activeTier(): CorrectionTier? = tiers.firstOrNull { it.isApplyingCorrections() }
 
     fun isAnyTierApplyingCorrections(): Boolean = tiers.any { it.isApplyingCorrections() }

@@ -34,7 +34,10 @@ class NtripManager @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
     private var ntripClient: NtripClient? = null
     private val parser = Rtcm3Parser()
-    private val engine = CorrectionEngine(listOf(Tier1Injector(GnssCorrector(context))))
+    private val engine = CorrectionEngine(listOf(
+        Tier1Injector(GnssCorrector(context)),
+        Tier3Solver(),
+    ))
     private val encryptedPrefs = createEncryptedPrefs()
 
     private val _isRtkActive = MutableStateFlow(false)
@@ -123,6 +126,46 @@ class NtripManager @Inject constructor(
         engine.stop()
         _isRtkActive.value = false
         _status.value = NtripStatus()
+    }
+
+    /**
+     * Feed ephemeris-only RTCM bytes (from a dedicated ephemeris mount).
+     * Routes to CorrectionEngine.onEphemerisData — Tier1 ignores (default no-op),
+     * Tier3 feeds into native ephemeris decoder.
+     *
+     * Does NOT pass through Tier1 injection path.
+     */
+    fun onEphemerisData(data: ByteArray) {
+        engine.onEphemerisData(data)
+    }
+
+    /**
+     * Forward one rover measurement epoch to the correction engine.
+     * Called from GnssMeasurementCollector when hasFullBiasNanos is true.
+     * Routes through CorrectionEngine → CorrectionTier.processRoverEpoch().
+     * Tier1 ignores (default no-op), Tier3 packs into native obsd_t + rtkpos().
+     */
+    fun processRoverEpoch(
+        timeNanos: Long,
+        fullBiasNanos: Long,
+        biasNanos: Double,
+        svids: IntArray,
+        constellationTypes: IntArray,
+        states: IntArray,
+        receivedSvTimeNanos: LongArray,
+        timeOffsetNanos: DoubleArray,
+        cn0DbHz: DoubleArray,
+        carrierFreqHz: DoubleArray,
+        pseudorangeRateMps: DoubleArray,
+        adrMeters: DoubleArray,
+        adrStates: IntArray,
+    ) {
+        engine.processRoverEpoch(
+            timeNanos, fullBiasNanos, biasNanos,
+            svids, constellationTypes, states,
+            receivedSvTimeNanos, timeOffsetNanos, cn0DbHz,
+            carrierFreqHz, pseudorangeRateMps, adrMeters, adrStates,
+        )
     }
 
     fun getConfig(): NtripConfig? {

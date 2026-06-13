@@ -1,0 +1,5 @@
+RTKLIB demo5 core vendored for Azimuth Tier 3 software solver scaffold.
+License: BSD-2-Clause compatible (RTKLIB original license).
+Source provenance: Phase 3a vetted local artifact — cross-compiled for arm64-v8a with NDK r26b.
+Build flags: ENAGLO ENAGAL ENACMP NFREQ=3 NEXOBS=0
+Do not modify vendored files without re-verification against upstream.
