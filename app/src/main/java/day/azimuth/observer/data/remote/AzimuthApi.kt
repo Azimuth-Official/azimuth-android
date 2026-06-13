@@ -334,4 +334,7 @@ interface AzimuthApi {
 
     @GET("api/version")
     suspend fun getLatestVersion(): VersionInfo
+
+    @GET("api/hex-freshness")
+    suspend fun getHexFreshness(@Query("bounds") bounds: String): HexFreshnessResponse
 }

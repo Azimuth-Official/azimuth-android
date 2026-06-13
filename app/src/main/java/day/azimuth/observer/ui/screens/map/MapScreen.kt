@@ -59,6 +59,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.CoverageTier
+import day.azimuth.observer.data.remote.HexFreshnessData
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
@@ -81,6 +82,17 @@ private fun parseBoundaryJson(json: String): List<GeoPoint> {
     return (numbers.indices step 2).map { i ->
         GeoPoint(numbers[i], numbers[i + 1])
     }
+}
+
+// ─── Freshness colors ───────────────────────────────────────────────
+
+private fun freshnessColors(tier: String): Pair<Int, Int> = when (tier) {
+    "stale_30d"    -> AndroidColor.argb(153, 245, 158, 11)  to AndroidColor.argb(204, 245, 158, 11)
+    "aging_7d"     -> AndroidColor.argb(115, 251, 191, 36)  to AndroidColor.argb(166, 251, 191, 36)
+    "baseline_24h" -> AndroidColor.argb(89, 6, 182, 212)    to AndroidColor.argb(140, 6, 182, 212)
+    "recent"       -> AndroidColor.argb(46, 6, 182, 212)    to AndroidColor.argb(97, 6, 182, 212)
+    "saturated"    -> AndroidColor.argb(31, 100, 116, 139)  to AndroidColor.argb(82, 100, 116, 139)
+    else           -> AndroidColor.argb(31, 100, 116, 139)  to AndroidColor.argb(82, 100, 116, 139)
 }
 
 // ─── Custom location icons ──────────────────────────────────────────
@@ -188,8 +200,11 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
             // Layer 1: Interactive map (full bleed)
             OsmdroidMapView(
                 hexes = uiState.displayHexes.ifEmpty { uiState.coveredHexes },
+                freshnessHexes = uiState.freshnessHexes,
                 onHexTapped = { hex -> viewModel.setTappedHex(hex) },
+                onFreshnessHexTapped = { hex -> viewModel.setTappedFreshnessHex(hex) },
                 onZoomChanged = { zoom -> viewModel.onZoomChanged(zoom) },
+                onBoundsChanged = { s, w, n, e -> viewModel.fetchFreshness(s, w, n, e) },
                 mapViewRef = mapViewRef,
                 locationOverlayRef = locationOverlayRef,
                 modifier = Modifier.fillMaxSize()
@@ -237,6 +252,26 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
                         .fillMaxWidth()
                 )
             }
+
+            // Tapped freshness hex card
+            val tappedFreshness = uiState.tappedFreshnessHex
+            if (tappedFreshness != null) {
+                TappedFreshnessHexCard(
+                    hex = tappedFreshness,
+                    onDismiss = { viewModel.setTappedFreshnessHex(null) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp, start = 8.dp, end = 8.dp)
+                        .fillMaxWidth()
+                )
+            }
+
+            // Freshness legend (bottom-start)
+            FreshnessLegend(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 8.dp, bottom = 80.dp)
+            )
 
             // Stats overlay card (bottom)
             AnimatedVisibility(
@@ -340,8 +375,11 @@ private fun MapControls(
 @Composable
 private fun OsmdroidMapView(
     hexes: List<HexCoverage>,
+    freshnessHexes: List<HexFreshnessData> = emptyList(),
     onHexTapped: (HexCoverage) -> Unit = {},
+    onFreshnessHexTapped: (HexFreshnessData) -> Unit = {},
     onZoomChanged: (Double) -> Unit = {},
+    onBoundsChanged: (Double, Double, Double, Double) -> Unit = { _, _, _, _ -> },
     mapViewRef: androidx.compose.runtime.MutableState<MapView?>,
     locationOverlayRef: androidx.compose.runtime.MutableState<MyLocationNewOverlay?>,
     modifier: Modifier = Modifier
@@ -391,9 +429,15 @@ private fun OsmdroidMapView(
                 locationOverlayRef.value = locationOverlay
 
                 addMapListener(object : MapListener {
-                    override fun onScroll(event: ScrollEvent?): Boolean = false
+                    override fun onScroll(event: ScrollEvent?): Boolean {
+                        val bb = boundingBox
+                        onBoundsChanged(bb.latSouth, bb.lonWest, bb.latNorth, bb.lonEast)
+                        return false
+                    }
                     override fun onZoom(event: ZoomEvent?): Boolean {
                         event?.let { onZoomChanged(it.zoomLevel) }
+                        val bb = boundingBox
+                        onBoundsChanged(bb.latSouth, bb.lonWest, bb.latNorth, bb.lonEast)
                         return false
                     }
                 })
@@ -483,6 +527,36 @@ private fun OsmdroidMapView(
             // Z-order: OTHER below, OWN on top
             otherPolygons.forEach { mapView.overlays.add(it) }
             ownPolygons.forEach { mapView.overlays.add(it) }
+
+            // Freshness hex overlay — renders on top when data available
+            if (freshnessHexes.isNotEmpty()) {
+                val fh3 = try { com.uber.h3core.H3Core.newInstance() } catch (_: Throwable) { null }
+                for (fHex in freshnessHexes) {
+                    if (fHex.freshnessTier == "virgin") continue
+                    val fVerts: List<GeoPoint> = if (fHex.boundary.isNotEmpty()) {
+                        fHex.boundary.map { coords ->
+                            GeoPoint(coords.getOrElse(0) { 0.0 }, coords.getOrElse(1) { 0.0 })
+                        }
+                    } else if (fh3 != null) {
+                        try {
+                            fh3.cellToBoundary(fHex.h3Index).map { GeoPoint(it.lat, it.lng) }
+                        } catch (_: Exception) { continue }
+                    } else continue
+
+                    val (fill, stroke) = freshnessColors(fHex.freshnessTier)
+                    val fPoly = Polygon(mapView).apply {
+                        points = fVerts.toMutableList()
+                        fillPaint.color = fill
+                        outlinePaint.color = stroke
+                        outlinePaint.strokeWidth = 1f
+                        setOnClickListener { _, _, _ ->
+                            onFreshnessHexTapped(fHex)
+                            true
+                        }
+                    }
+                    mapView.overlays.add(fPoly)
+                }
+            }
 
             // Center on hex coverage only on first load
             if (allPoints.isNotEmpty() && !hasInitializedCamera.value) {
@@ -708,6 +782,70 @@ private fun EmptyMapState() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FreshnessLegend(modifier: Modifier = Modifier) {
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(
+                text = "Reward Multiplier",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            LegendRow(color = Color(0xFFF59E0B), label = "High (>7d)")
+            LegendRow(color = Color(0xFF06B6D4), label = "Standard")
+            LegendRow(color = Color(0xFF64748B), label = "Low (<24h)")
+        }
+    }
+}
+
+@Composable
+private fun LegendRow(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 1.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color.copy(alpha = 0.7f), RoundedCornerShape(2.dp))
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun TappedFreshnessHexCard(
+    hex: HexFreshnessData,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.clickable { onDismiss() }) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "Hex ${hex.h3Index.takeLast(8)}",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Last mapped: ${hex.lastObservation ?: "Never"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "Reward: ${hex.freshnessMultiplier}x  |  ${hex.observationCount} observations",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }

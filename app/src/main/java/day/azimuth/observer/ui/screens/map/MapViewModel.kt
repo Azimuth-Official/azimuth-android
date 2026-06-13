@@ -13,6 +13,7 @@ import day.azimuth.observer.data.local.CoverageTier
 import day.azimuth.observer.data.local.HexCoverage
 import day.azimuth.observer.data.local.HexCoverageDao
 import day.azimuth.observer.data.remote.AzimuthApi
+import day.azimuth.observer.data.remote.HexFreshnessData
 import day.azimuth.observer.service.CollectionController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,6 +39,8 @@ data class MapUiState(
     val wifiTotal: Int = 0,
     val pendingApprox: Int = 0,
     val tappedHex: HexCoverage? = null,
+    val freshnessHexes: List<HexFreshnessData> = emptyList(),
+    val tappedFreshnessHex: HexFreshnessData? = null,
     val backfillState: BackfillState = BackfillState.IDLE,
     val statsVisible: Boolean = true,
     val pointsBalance: Int = 0,
@@ -57,6 +60,8 @@ class MapViewModel @Inject constructor(
     private val h3Core: H3Core? = try { H3Core.newInstance() } catch (_: Throwable) { null }
     private var currentZoom: Double = 14.0
     private var zoomDebounceJob: Job? = null
+    private var freshnessFetchJob: Job? = null
+    private var lastFreshnessBounds: String = ""
 
     init {
         viewModelScope.launch {
@@ -225,7 +230,29 @@ class MapViewModel @Inject constructor(
     }
 
     fun setTappedHex(hex: HexCoverage?) {
-        _uiState.value = _uiState.value.copy(tappedHex = hex)
+        _uiState.value = _uiState.value.copy(tappedHex = hex, tappedFreshnessHex = null)
+    }
+
+    fun setTappedFreshnessHex(hex: HexFreshnessData?) {
+        _uiState.value = _uiState.value.copy(tappedFreshnessHex = hex, tappedHex = null)
+    }
+
+    fun fetchFreshness(south: Double, west: Double, north: Double, east: Double) {
+        val boundsKey = "${(south * 100).toLong()},${(west * 100).toLong()},${(north * 100).toLong()},${(east * 100).toLong()}"
+        if (boundsKey == lastFreshnessBounds) return
+        lastFreshnessBounds = boundsKey
+
+        freshnessFetchJob?.cancel()
+        freshnessFetchJob = viewModelScope.launch {
+            delay(500)
+            try {
+                val bounds = "$south,$west,$north,$east"
+                val response = api.getHexFreshness(bounds)
+                _uiState.value = _uiState.value.copy(freshnessHexes = response.hexes)
+            } catch (e: Exception) {
+                Log.w(TAG, "Freshness fetch failed: ${e.message}")
+            }
+        }
     }
 
     fun toggleStats() {
