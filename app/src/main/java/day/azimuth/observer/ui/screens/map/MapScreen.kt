@@ -57,8 +57,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import day.azimuth.observer.data.local.HexCoverage
-import day.azimuth.observer.data.local.CoverageTier
 import day.azimuth.observer.data.remote.HexFreshnessData
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
@@ -193,15 +191,13 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
     val locationOverlayRef = remember { mutableStateOf<MyLocationNewOverlay?>(null) }
 
-    if (uiState.coveredHexes.isEmpty()) {
+    if (uiState.freshnessHexes.isEmpty()) {
         EmptyMapState()
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
             // Layer 1: Interactive map (full bleed)
             OsmdroidMapView(
-                hexes = uiState.displayHexes.ifEmpty { uiState.coveredHexes },
                 freshnessHexes = uiState.freshnessHexes,
-                onHexTapped = { hex -> viewModel.setTappedHex(hex) },
                 onFreshnessHexTapped = { hex -> viewModel.setTappedFreshnessHex(hex) },
                 onZoomChanged = { zoom -> viewModel.onZoomChanged(zoom) },
                 onBoundsChanged = { s, w, n, e -> viewModel.fetchFreshness(s, w, n, e) },
@@ -239,19 +235,6 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
                     .align(Alignment.CenterEnd)
                     .padding(end = 12.dp)
             )
-
-            // Tapped hex info card
-            val tapped = uiState.tappedHex
-            if (tapped != null) {
-                TappedHexCard(
-                    hex = tapped,
-                    onDismiss = { viewModel.setTappedHex(null) },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp, start = 8.dp, end = 8.dp)
-                        .fillMaxWidth()
-                )
-            }
 
             // Tapped freshness hex card
             val tappedFreshness = uiState.tappedFreshnessHex
@@ -374,9 +357,7 @@ private fun MapControls(
 
 @Composable
 private fun OsmdroidMapView(
-    hexes: List<HexCoverage>,
     freshnessHexes: List<HexFreshnessData> = emptyList(),
-    onHexTapped: (HexCoverage) -> Unit = {},
     onFreshnessHexTapped: (HexFreshnessData) -> Unit = {},
     onZoomChanged: (Double) -> Unit = {},
     onBoundsChanged: (Double, Double, Double, Double) -> Unit = { _, _, _, _ -> },
@@ -387,7 +368,6 @@ private fun OsmdroidMapView(
     val context = LocalContext.current
     val hasInitializedCamera = remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    val hexByPolygon = remember { mutableMapOf<Polygon, HexCoverage>() }
 
     AndroidView(
         factory = { ctx ->
@@ -448,87 +428,10 @@ private fun OsmdroidMapView(
         update = { mapView ->
             // Remove only hex polygons, keep location overlay
             mapView.overlays.removeAll { it is Polygon }
-            hexByPolygon.clear()
-
-            val h3Core = try {
-                com.uber.h3core.H3Core.newInstance()
-            } catch (_: Throwable) {
-                null
-            }
 
             val allPoints = mutableListOf<GeoPoint>()
-            val otherPolygons = mutableListOf<Polygon>()
-            val ownPolygons = mutableListOf<Polygon>()
-            var renderedCount = 0
-            val maxRendered = 500
 
-            for (hex in hexes) {
-                if (renderedCount >= maxRendered) break
-                val tier = hex.getTier()
-                if (tier == CoverageTier.UNMAPPED) continue
-
-                val vertices: List<GeoPoint> = when {
-                    // Prefer server-computed boundary (real H3 hexagons that interlock)
-                    hex.boundary != null -> {
-                        try {
-                            parseBoundaryJson(hex.boundary)
-                        } catch (_: Exception) {
-                            continue
-                        }
-                    }
-                    // H3Core fallback (if native lib works on this device)
-                    !hex.h3Index.startsWith("grid") && h3Core != null -> {
-                        try {
-                            h3Core.cellToBoundary(hex.h3Index).map { latLng ->
-                                GeoPoint(latLng.lat, latLng.lng)
-                            }
-                        } catch (_: Exception) {
-                            continue
-                        }
-                    }
-                    // Grid fallback — skip rendering (CoverageSyncWorker will normalize to real H3)
-                    hex.h3Index.startsWith("grid8:") -> continue
-                    else -> continue
-                }
-
-                allPoints.addAll(vertices)
-
-                val obsCount = hex.observationCount
-                val fillColor = when {
-                    // OWN hexes get a 25% opacity floor so user always sees own coverage
-                    tier == CoverageTier.OWN && obsCount < 100 ->
-                        AndroidColor.argb(64, 245, 158, 11)
-                    obsCount >= 5000 -> AndroidColor.argb(179, 6, 182, 212)
-                    obsCount >= 1000 -> AndroidColor.argb(128, 6, 182, 212)
-                    obsCount >= 100  -> AndroidColor.argb(102, 245, 158, 11)
-                    else             -> AndroidColor.argb(38, 245, 158, 11)
-                }
-
-                val polygon = Polygon(mapView).apply {
-                    points = vertices.toMutableList()
-                    fillPaint.color = fillColor
-                    outlinePaint.color = AndroidColor.argb(153, 245, 158, 11)
-                    outlinePaint.strokeWidth = 1f
-                    setOnClickListener { _, _, _ ->
-                        onHexTapped(hex)
-                        true
-                    }
-                }
-                hexByPolygon[polygon] = hex
-                renderedCount++
-
-                if (tier == CoverageTier.OWN) {
-                    ownPolygons.add(polygon)
-                } else {
-                    otherPolygons.add(polygon)
-                }
-            }
-
-            // Z-order: OTHER below, OWN on top
-            otherPolygons.forEach { mapView.overlays.add(it) }
-            ownPolygons.forEach { mapView.overlays.add(it) }
-
-            // Freshness hex overlay — renders on top when data available
+            // Freshness hex overlay — sole hex layer
             if (freshnessHexes.isNotEmpty()) {
                 val fh3 = try { com.uber.h3core.H3Core.newInstance() } catch (_: Throwable) { null }
                 for (fHex in freshnessHexes) {
@@ -542,6 +445,8 @@ private fun OsmdroidMapView(
                             fh3.cellToBoundary(fHex.h3Index).map { GeoPoint(it.lat, it.lng) }
                         } catch (_: Exception) { continue }
                     } else continue
+
+                    allPoints.addAll(fVerts)
 
                     val (fill, stroke) = freshnessColors(fHex.freshnessTier)
                     val fPoly = Polygon(mapView).apply {
@@ -719,31 +624,6 @@ private fun BackfillBanner(
                 }
                 else -> {}
             }
-        }
-    }
-}
-
-@Composable
-private fun TappedHexCard(
-    hex: HexCoverage,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable { onDismiss() }
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "Coverage area",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${hex.cellCount + hex.gnssCount + hex.wifiCount} observations " +
-                    "(${hex.cellCount} cell, ${hex.gnssCount} GNSS, ${hex.wifiCount} Wi-Fi)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
