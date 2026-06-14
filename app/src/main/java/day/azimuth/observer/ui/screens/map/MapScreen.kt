@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Visibility
@@ -191,10 +190,7 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
     val locationOverlayRef = remember { mutableStateOf<MyLocationNewOverlay?>(null) }
 
-    if (uiState.freshnessHexes.isEmpty()) {
-        EmptyMapState()
-    } else {
-        Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
             // Layer 1: Interactive map (full bleed)
             OsmdroidMapView(
                 freshnessHexes = uiState.freshnessHexes,
@@ -285,7 +281,6 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
                 )
             }
         }
-    }
 }
 
 // ─── Map controls ───────────────────────────────────────────────────
@@ -624,45 +619,6 @@ private fun BackfillBanner(
                 }
                 else -> {}
             }
-        }
-    }
-}
-
-@Composable
-private fun EmptyMapState() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.Map,
-                contentDescription = "No coverage found",
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No coverage yet",
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Start observing to light up your first hex on the map. All data stays on this device.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Walk around with the app to light up new hexes!",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }
