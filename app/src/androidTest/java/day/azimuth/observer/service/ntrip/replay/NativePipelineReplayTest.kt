@@ -81,38 +81,15 @@ class NativePipelineReplayTest {
 
     @Test
     fun processRoverEpoch_returnsValidSolutionJson() {
-        val epoch = SyntheticRoverEpoch.create(satCount = 8)
-
-        val solutionJson = RtklibNative.nativeProcessEpoch(
-            nativeHandle,
-            epoch.timeNanos, epoch.fullBiasNanos, epoch.biasNanos,
-            epoch.svids.size,
-            epoch.svids, epoch.constellationTypes, epoch.states,
-            epoch.receivedSvTimeNanos, epoch.timeOffsetNanos, epoch.cn0DbHz,
-            epoch.carrierFreqHz, epoch.pseudorangeRateMps, epoch.adrMeters, epoch.adrStates,
-        )
-
+        val solutionJson = processInlineEpoch(8)
         assertTrue(solutionJson.isNotEmpty(), "nativeProcessEpoch should return non-empty JSON")
     }
 
     @Test
     fun multiEpochSequence_noExceptions() {
-        val epochs = listOf(
-            SyntheticRoverEpoch.create(satCount = 8),
-            SyntheticRoverEpoch.create(satCount = 10),
-            SyntheticRoverEpoch.create(satCount = 6),
-        )
-
-        epochs.forEach { epoch ->
-            val solutionJson = RtklibNative.nativeProcessEpoch(
-                nativeHandle,
-                epoch.timeNanos, epoch.fullBiasNanos, epoch.biasNanos,
-                epoch.svids.size,
-                epoch.svids, epoch.constellationTypes, epoch.states,
-                epoch.receivedSvTimeNanos, epoch.timeOffsetNanos, epoch.cn0DbHz,
-                epoch.carrierFreqHz, epoch.pseudorangeRateMps, epoch.adrMeters, epoch.adrStates,
-            )
-            assertTrue(solutionJson.isNotEmpty(), "Solution should be non-empty for all epochs")
+        for (n in listOf(8, 10, 6)) {
+            val json = processInlineEpoch(n)
+            assertTrue(json.isNotEmpty(), "Solution should be non-empty for satCount=$n")
         }
     }
 
@@ -121,22 +98,35 @@ class NativePipelineReplayTest {
         val fixture = javaClass.classLoader!!.getResourceAsStream("rtcm/brandtfarms_120s.rtcm3")?.readBytes()
         Assume.assumeNotNull("RTCM fixture not found in androidTest assets", fixture)
 
-        // Feed RTCM first to populate base station state
         val rtcmResult = RtklibNative.nativeFeedRtcm(
             nativeHandle, fixture!!, fixture.size, RtklibNative.STREAM_COMBINED
         )
         assertTrue(rtcmResult >= 0, "RTCM feed should succeed")
 
-        // Then process a rover epoch
-        val epoch = SyntheticRoverEpoch.create()
-        val solutionJson = RtklibNative.nativeProcessEpoch(
-            nativeHandle,
-            epoch.timeNanos, epoch.fullBiasNanos, epoch.biasNanos,
-            epoch.svids.size,
-            epoch.svids, epoch.constellationTypes, epoch.states,
-            epoch.receivedSvTimeNanos, epoch.timeOffsetNanos, epoch.cn0DbHz,
-            epoch.carrierFreqHz, epoch.pseudorangeRateMps, epoch.adrMeters, epoch.adrStates,
+        val json = processInlineEpoch(8)
+        assertTrue(json.isNotEmpty(), "Solution should be non-empty after RTCM context setup")
+    }
+
+    /** Build a synthetic rover epoch inline — avoids cross-source-set dependency on SyntheticRoverEpoch. */
+    private fun processInlineEpoch(satCount: Int): String {
+        val timeNanos = 1_000_000_000_000L
+        val fullBiasNanos = -1_262_304_000_000_000_000L
+        val biasNanos = 0.0
+        val svids = IntArray(satCount) { it + 1 }
+        val constTypes = IntArray(satCount) { 1 } // GPS
+        val states = IntArray(satCount) { 9 } // CODE_LOCK | TOW_DECODED
+        val recvSvTime = LongArray(satCount) { 80_000_000_000L + it * 1_000_000L }
+        val timeOffset = DoubleArray(satCount) { 0.0 }
+        val cn0 = DoubleArray(satCount) { 35.0 + it * 2.0 }
+        val carrierFreq = DoubleArray(satCount) { 1575.42e6 }
+        val prRate = DoubleArray(satCount) { -500.0 + it * 100.0 }
+        val adrM = DoubleArray(satCount) { 100_000.0 + it * 1000.0 }
+        val adrSt = IntArray(satCount) { 1 }
+
+        return RtklibNative.nativeProcessEpoch(
+            nativeHandle, timeNanos, fullBiasNanos, biasNanos,
+            satCount, svids, constTypes, states,
+            recvSvTime, timeOffset, cn0, carrierFreq, prRate, adrM, adrSt,
         )
-        assertTrue(solutionJson.isNotEmpty(), "Solution should be non-empty after RTCM context setup")
     }
 }

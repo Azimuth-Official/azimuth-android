@@ -7,7 +7,7 @@ add_library(rtklib STATIC
     trace.c solution.c ppp.c ppp_ar.c tides.c
 )
 
-target_compile_definitions(rtklib PRIVATE
+target_compile_definitions(rtklib PUBLIC
     ENAGLO ENAGAL ENACMP
     NFREQ=3 NEXOBS=0
 )
