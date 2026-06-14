@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import day.azimuth.observer.data.local.EphemerisNtripConfig
 import day.azimuth.observer.data.local.NtripConfig
 import day.azimuth.observer.data.local.NtripStatus
 import day.azimuth.observer.data.remote.AzimuthApi
@@ -23,6 +24,13 @@ data class RtkSettingsUiState(
     val username: String = "",
     val password: String = "",
     val isEnabled: Boolean = false,
+    // Ephemeris mount (dual NTRIP)
+    val ephEnabled: Boolean = false,
+    val ephCasterUrl: String = "",
+    val ephCasterPort: Int = 2101,
+    val ephMountpoint: String = "",
+    val ephUsername: String = "",
+    val ephPassword: String = "",
 )
 
 @HiltViewModel
@@ -40,6 +48,7 @@ class RtkSettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val config = ntripManager.getConfig()
+            val ephConfig = ntripManager.getEphemerisConfig()
             if (config != null) {
                 _uiState.value = RtkSettingsUiState(
                     providerName = config.providerName,
@@ -49,6 +58,12 @@ class RtkSettingsViewModel @Inject constructor(
                     username = config.username,
                     password = config.password,
                     isEnabled = ntripManager.isRtkActive.value,
+                    ephEnabled = ephConfig != null,
+                    ephCasterUrl = ephConfig?.casterUrl ?: "",
+                    ephCasterPort = ephConfig?.casterPort ?: 2101,
+                    ephMountpoint = ephConfig?.mountpoint ?: "",
+                    ephUsername = ephConfig?.username ?: "",
+                    ephPassword = ephConfig?.password ?: "",
                 )
             }
         }
@@ -82,6 +97,12 @@ class RtkSettingsViewModel @Inject constructor(
         mountpoint: String,
         username: String,
         password: String,
+        ephEnabled: Boolean = false,
+        ephCasterUrl: String = "",
+        ephCasterPort: Int = 2101,
+        ephMountpoint: String = "",
+        ephUsername: String = "",
+        ephPassword: String = "",
     ) {
         viewModelScope.launch {
             val config = NtripConfig(
@@ -93,6 +114,20 @@ class RtkSettingsViewModel @Inject constructor(
                 password = password,
             )
             ntripManager.saveConfig(config)
+
+            // Save ephemeris config if enabled
+            if (ephEnabled && ephCasterUrl.isNotEmpty() && ephMountpoint.isNotEmpty()) {
+                val ephConfig = EphemerisNtripConfig(
+                    casterUrl = ephCasterUrl,
+                    casterPort = ephCasterPort,
+                    mountpoint = ephMountpoint,
+                    username = ephUsername,
+                    password = ephPassword,
+                )
+                ntripManager.saveEphemerisConfig(ephConfig)
+            } else {
+                ntripManager.clearEphemerisConfig()
+            }
 
             // Register RTK provider with server for bonus points
             try {
@@ -109,5 +144,9 @@ class RtkSettingsViewModel @Inject constructor(
     fun disconnect() {
         ntripManager.stop()
         _uiState.value = _uiState.value.copy(isEnabled = false)
+    }
+
+    fun toggleEphemerisMount(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(ephEnabled = enabled)
     }
 }

@@ -14,10 +14,20 @@ class CorrectionEngine(private val tiers: List<CorrectionTier>) {
         Log.i(TAG, "CorrectionEngine stopped")
     }
 
-    fun onRtcmData(data: ByteArray) {
-        // Unconditional fan-out — each tier handles its own support checks internally.
-        // Gating here would prevent chipsetSupported from being set via reflection.
-        tiers.forEach { it.onRtcmData(data) }
+    fun onRtcmData(data: ByteArray, streamType: Int = RtklibNative.STREAM_COMBINED) {
+        when (streamType) {
+            RtklibNative.STREAM_EPHEMERIS -> {
+                // Ephemeris ONLY → route through onEphemerisData (Tier1 = no-op, Tier3 feeds eph decoder)
+                // SAFETY: ephemeris bytes never reach tier.onRtcmData() — structurally blocked
+                tiers.forEach { it.onEphemerisData(data) }
+            }
+            else -> {
+                // STREAM_BASE_OBS or STREAM_COMBINED → fan-out to all tiers via onRtcmData
+                // Unconditional fan-out — each tier handles its own support checks internally.
+                // Gating here would prevent chipsetSupported from being set via reflection.
+                tiers.forEach { it.onRtcmData(data, streamType) }
+            }
+        }
     }
 
     fun onEphemerisData(data: ByteArray) {

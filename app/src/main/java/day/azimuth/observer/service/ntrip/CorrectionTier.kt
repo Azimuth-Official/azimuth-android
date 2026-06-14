@@ -5,7 +5,7 @@ interface CorrectionTier {
     fun isSupported(): Boolean
     fun start()
     fun stop()
-    fun onRtcmData(data: ByteArray)
+    fun onRtcmData(data: ByteArray, streamType: Int = RtklibNative.STREAM_COMBINED)
     fun isApplyingCorrections(): Boolean
     fun reportedAccuracyMeters(): Float?
 

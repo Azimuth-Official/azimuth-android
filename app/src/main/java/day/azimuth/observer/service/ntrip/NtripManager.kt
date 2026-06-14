@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.google.gson.Gson
+import day.azimuth.observer.data.local.EphemerisNtripConfig
 import day.azimuth.observer.data.local.NtripConfig
 import day.azimuth.observer.data.local.NtripConnectionState
 import day.azimuth.observer.data.local.NtripStatus
@@ -32,7 +33,9 @@ class NtripManager @Inject constructor(
     private val locationProvider: LocationProvider,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
-    private var ntripClient: NtripClient? = null
+    private var observationClient: NtripClient? = null
+    private var ephemerisClient: NtripClient? = null
+    private var ephemerisConfig: EphemerisNtripConfig? = null
     private val parser = Rtcm3Parser()
     private val engine = CorrectionEngine(listOf(
         Tier1Injector(GnssCorrector(context)),
@@ -47,60 +50,57 @@ class NtripManager @Inject constructor(
     val status: StateFlow<NtripStatus> = _status.asStateFlow()
 
     private var gpsTaskJob: Job? = null
+    private var observationReadJob: Job? = null
+    private var ephemerisReadJob: Job? = null
 
     fun start(config: NtripConfig) {
         scope.launch {
             try {
                 engine.start()
-                val client = NtripClient()
-                client.connect(config)
-                ntripClient = client
+                ephemerisConfig = getEphemerisConfig()
+                val isDualMode = ephemerisConfig != null
+
+                // Connect observation client
+                val obsClient = NtripClient()
+                obsClient.connect(config)
+                observationClient = obsClient
                 saveConfig(config)
                 _status.value = _status.value.copy(state = NtripConnectionState.CONNECTED)
 
-                // Collect status updates
-                var messagesProcessed = 0
-                var lastGpsSend = System.currentTimeMillis()
-                var rtcmReceived = false
+                // Start observation read loop
+                observationReadJob = scope.launch {
+                    startObservationReadLoop(obsClient, isDualMode)
+                }
 
-                while (client.isConnected()) {
-                    val rtcmData = client.readRtcmData()
-                    if (rtcmData != null) {
-                        // Parse and inject corrections
-                        val messages = parser.parseMessage(rtcmData)
-                        if (messages.isNotEmpty()) {
-                            messagesProcessed += messages.size
-                            _status.value = _status.value.copy(
-                                messagesDecoded = messagesProcessed
-                            )
-                            engine.onRtcmData(rtcmData)
-                            if (!rtcmReceived) {
-                                rtcmReceived = true
-                                if (engine.isAnyTierApplyingCorrections()) {
-                                    _isRtkActive.value = true
-                                    Log.i(TAG, "RTK active: RTCM data received, corrections applied")
-                                } else {
-                                    Log.i(TAG, "RTCM data flowing but chipset does not support correction injection")
-                                }
-                            }
+                // Start ephemeris read loop if dual mode
+                if (isDualMode && ephemerisConfig != null) {
+                    val ephClient = NtripClient()
+                    try {
+                        // Convert EphemerisNtripConfig to NtripConfig for connection
+                        val ephConnConfig = NtripConfig(
+                            providerName = "ephemeris_mount",
+                            casterUrl = ephemerisConfig!!.casterUrl,
+                            casterPort = ephemerisConfig!!.casterPort,
+                            mountpoint = ephemerisConfig!!.mountpoint,
+                            username = ephemerisConfig!!.username,
+                            password = ephemerisConfig!!.password,
+                        )
+                        ephClient.connect(ephConnConfig)
+                        ephemerisClient = ephClient
+                        Log.i(TAG, "Ephemeris mount connected")
+
+                        ephemerisReadJob = scope.launch {
+                            startEphemerisReadLoop(ephClient)
                         }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to connect ephemeris mount: ${e.message}")
+                        ephemerisClient = null
                     }
+                }
 
-                    // Send GGA every 10 seconds for VRS support
-                    val now = System.currentTimeMillis()
-                    if (now - lastGpsSend > 10000) {
-                        try {
-                            val location = locationProvider.getLastLocation()
-                            if (location != null) {
-                                client.sendGga(location.latitude, location.longitude, location.altitude)
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to send GGA: ${e.message}")
-                        }
-                        lastGpsSend = now
-                    }
-
-                    delay(100) // Brief delay before next read
+                // Wait for observation client to disconnect
+                while (obsClient.isConnected()) {
+                    delay(1000)
                 }
 
                 Log.i(TAG, "NTRIP connection lost")
@@ -119,10 +119,74 @@ class NtripManager @Inject constructor(
         }
     }
 
+    private suspend fun startObservationReadLoop(client: NtripClient, isDualMode: Boolean) {
+        var messagesProcessed = 0
+        var lastGpsSend = System.currentTimeMillis()
+        var rtcmReceived = false
+        val streamType = if (isDualMode) RtklibNative.STREAM_BASE_OBS else RtklibNative.STREAM_COMBINED
+
+        while (client.isConnected()) {
+            val rtcmData = client.readRtcmData()
+            if (rtcmData != null) {
+                val messages = parser.parseMessage(rtcmData)
+                if (messages.isNotEmpty()) {
+                    messagesProcessed += messages.size
+                    _status.value = _status.value.copy(
+                        messagesDecoded = messagesProcessed
+                    )
+                    engine.onRtcmData(rtcmData, streamType)
+                    if (!rtcmReceived) {
+                        rtcmReceived = true
+                        if (engine.isAnyTierApplyingCorrections()) {
+                            _isRtkActive.value = true
+                            Log.i(TAG, "RTK active: RTCM data received, corrections applied")
+                        } else {
+                            Log.i(TAG, "RTCM data flowing but chipset does not support correction injection")
+                        }
+                    }
+                }
+            }
+
+            // Send GGA every 10 seconds for VRS support (observation mount only)
+            val now = System.currentTimeMillis()
+            if (now - lastGpsSend > 10000) {
+                try {
+                    val location = locationProvider.getLastLocation()
+                    if (location != null) {
+                        client.sendGga(location.latitude, location.longitude, location.altitude)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to send GGA: ${e.message}")
+                }
+                lastGpsSend = now
+            }
+
+            delay(100)
+        }
+    }
+
+    private suspend fun startEphemerisReadLoop(client: NtripClient) {
+        while (client.isConnected()) {
+            val rtcmData = client.readRtcmData()
+            if (rtcmData != null) {
+                val messages = parser.parseMessage(rtcmData)
+                if (messages.isNotEmpty()) {
+                    engine.onRtcmData(rtcmData, RtklibNative.STREAM_EPHEMERIS)
+                }
+            }
+            delay(100)
+        }
+        Log.i(TAG, "Ephemeris mount connection lost")
+    }
+
     fun stop() {
         gpsTaskJob?.cancel()
-        ntripClient?.disconnect()
-        ntripClient = null
+        observationReadJob?.cancel()
+        ephemerisReadJob?.cancel()
+        observationClient?.disconnect()
+        ephemerisClient?.disconnect()
+        observationClient = null
+        ephemerisClient = null
         engine.stop()
         _isRtkActive.value = false
         _status.value = NtripStatus()
@@ -184,6 +248,27 @@ class NtripManager @Inject constructor(
         Log.i(TAG, "Saved NTRIP config for ${config.providerName}")
     }
 
+    fun getEphemerisConfig(): EphemerisNtripConfig? {
+        val json = encryptedPrefs.getString(KEY_EPH_NTRIP_CONFIG, null) ?: return null
+        return try {
+            gson.fromJson(json, EphemerisNtripConfig::class.java)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse saved ephemeris NTRIP config: ${e.message}")
+            null
+        }
+    }
+
+    fun saveEphemerisConfig(config: EphemerisNtripConfig) {
+        val json = gson.toJson(config)
+        encryptedPrefs.edit().putString(KEY_EPH_NTRIP_CONFIG, json).apply()
+        Log.i(TAG, "Saved ephemeris NTRIP config")
+    }
+
+    fun clearEphemerisConfig() {
+        encryptedPrefs.edit().remove(KEY_EPH_NTRIP_CONFIG).apply()
+        Log.i(TAG, "Cleared ephemeris NTRIP config")
+    }
+
     private fun createEncryptedPrefs(): EncryptedSharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -201,5 +286,6 @@ class NtripManager @Inject constructor(
     companion object {
         private const val TAG = "NtripManager"
         private const val KEY_NTRIP_CONFIG = "ntrip_config"
+        private const val KEY_EPH_NTRIP_CONFIG = "eph_ntrip_config"
     }
 }

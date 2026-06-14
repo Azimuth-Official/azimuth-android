@@ -2,6 +2,7 @@ package day.azimuth.observer.ui.screens.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,13 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +57,14 @@ fun RtkSettingsScreen(
     var mountpoint by remember { mutableStateOf(uiState.mountpoint) }
     var username by remember { mutableStateOf(uiState.username) }
     var password by remember { mutableStateOf(uiState.password) }
+
+    var ephEnabled by remember { mutableStateOf(uiState.ephEnabled) }
+    var ephCasterUrl by remember { mutableStateOf(uiState.ephCasterUrl) }
+    var ephCasterPort by remember { mutableStateOf(uiState.ephCasterPort.toString()) }
+    var ephMountpoint by remember { mutableStateOf(uiState.ephMountpoint) }
+    var ephUsername by remember { mutableStateOf(uiState.ephUsername) }
+    var ephPassword by remember { mutableStateOf(uiState.ephPassword) }
+    var expandEphemeris by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -161,6 +174,112 @@ fun RtkSettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Advanced: Ephemeris Mount section
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expandEphemeris = !expandEphemeris }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Advanced: Dedicated Ephemeris Mount",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = if (expandEphemeris) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = "Toggle ephemeris mount",
+                        )
+                    }
+
+                    if (expandEphemeris) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = ephEnabled,
+                                    onCheckedChange = {
+                                        ephEnabled = it
+                                        viewModel.toggleEphemerisMount(it)
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Use dedicated ephemeris mount",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+
+                            if (ephEnabled) {
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = ephCasterUrl,
+                                    onValueChange = { ephCasterUrl = it },
+                                    label = { Text("Caster URL") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = ephCasterPort,
+                                    onValueChange = { ephCasterPort = it },
+                                    label = { Text("Port") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = ephMountpoint,
+                                    onValueChange = { ephMountpoint = it },
+                                    label = { Text("Mountpoint") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = ephUsername,
+                                    onValueChange = { ephUsername = it },
+                                    label = { Text("Username") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = ephPassword,
+                                    onValueChange = { ephPassword = it },
+                                    label = { Text("Password") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Connection status
             Text(
                 text = "Status",
@@ -244,6 +363,7 @@ fun RtkSettingsScreen(
                 Button(
                     onClick = {
                         val port = casterPort.toIntOrNull() ?: 2101
+                        val ephPort = ephCasterPort.toIntOrNull() ?: 2101
                         viewModel.saveAndEnable(
                             providerName = providerName,
                             casterUrl = casterUrl,
@@ -251,6 +371,12 @@ fun RtkSettingsScreen(
                             mountpoint = mountpoint,
                             username = username,
                             password = password,
+                            ephEnabled = ephEnabled,
+                            ephCasterUrl = ephCasterUrl,
+                            ephCasterPort = ephPort,
+                            ephMountpoint = ephMountpoint,
+                            ephUsername = ephUsername,
+                            ephPassword = ephPassword,
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

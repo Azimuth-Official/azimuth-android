@@ -20,7 +20,7 @@ class Tier1Injector(private val corrector: GnssCorrector) : CorrectionTier {
         Log.d(TAG, "Tier1Injector stopped")
     }
 
-    override fun onRtcmData(data: ByteArray) {
+    override fun onRtcmData(data: ByteArray, streamType: Int) {
         corrector.injectCorrections(data)
         if (!hasReceivedRtcm) {
             hasReceivedRtcm = true

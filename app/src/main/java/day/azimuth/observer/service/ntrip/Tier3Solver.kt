@@ -51,10 +51,10 @@ class Tier3Solver : CorrectionTier {
         }
     }
 
-    override fun onRtcmData(data: ByteArray) {
+    override fun onRtcmData(data: ByteArray, streamType: Int) {
         if (nativeHandle == 0L) return
         RtklibNative.nativeFeedRtcm(
-            nativeHandle, data, data.size, RtklibNative.STREAM_COMBINED,
+            nativeHandle, data, data.size, streamType,
         )
     }
 
