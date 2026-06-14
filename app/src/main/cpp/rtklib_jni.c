@@ -124,7 +124,7 @@ Java_day_azimuth_observer_service_ntrip_RtklibNative_nativeInit(
     ctx->opt = prcopt_default;
     ctx->opt.mode   = PMODE_KINEMA;
     ctx->opt.nf     = 2;                              /* dual-frequency */
-    ctx->opt.navsys = SYS_GPS | SYS_GAL | SYS_CMP;   /* GLONASS staged off */
+    ctx->opt.navsys = SYS_GPS | SYS_GAL | SYS_CMP | SYS_GLO;
     ctx->opt.modear = 1;                               /* continuous AR (conservative) */
     ctx->opt.elmin  = 15.0 * D2R;                      /* 15 deg elevation mask */
 
